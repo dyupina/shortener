@@ -47,7 +47,7 @@ func TestShortenURL(t *testing.T) {
 
 			assert.NoError(t, err)
 
-			assert.Equal(t, tc.expectedCode, w.Result().StatusCode, "Код ответа не совпадает с ожидаемым")
+			assert.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
 
 			id := path.Base(string(resBody))
 			TestURLStore[id] = urlStore[id]
