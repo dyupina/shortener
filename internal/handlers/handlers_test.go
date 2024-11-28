@@ -2,13 +2,14 @@ package handlers
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"path"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var TestURLStore = make(map[string]string)
@@ -38,16 +39,12 @@ func TestShortenURL(t *testing.T) {
 
 			res := w.Result()
 			// проверяем код ответа
-			assert.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
+			require.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
 
 			// получаем и проверяем тело запроса
 			defer res.Body.Close()
-			resBody, err := io.ReadAll(res.Body) // тут либо "Only POST requests are allowed!",
+			resBody, _ := io.ReadAll(res.Body) // тут либо "Only POST requests are allowed!",
 			// либо "http://localhost:8080/" + shortID
-
-			assert.NoError(t, err)
-
-			assert.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
 
 			id := path.Base(string(resBody))
 			TestURLStore[id] = urlStore[id]
@@ -74,13 +71,14 @@ func TestGetOriginalURL(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
 
-			for k := range TestURLStore {
-				r := httptest.NewRequest(tc.method, "/"+k, nil)
+			for k, v := range TestURLStore {
+				fmt.Printf("k:%s    v:%s\n\r", k, v)
+				r := httptest.NewRequest(tc.method, "http://localhost:8080/"+k, nil)
 				w := httptest.NewRecorder()
 
 				GetOriginalURL(w, r)
 
-				assert.Equal(t, tc.expectedCode, w.Code, "Код ответа не совпадает с ожидаемым")
+				require.Equal(t, tc.expectedCode, w.Code, "Код ответа не совпадает с ожидаемым")
 			}
 		})
 	}
