@@ -3,6 +3,7 @@ package handlers
 import (
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/9ssi7/nanoid"
 )
@@ -43,7 +44,9 @@ func GetOriginalURL(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	id := req.PathValue("id") // получить id из /{id}
+	// получить id из /{id}
+	// id := req.PathValue("id")
+	id := strings.TrimPrefix(req.URL.Path, "/")
 
 	originalURL, exists := urlStore[id]
 

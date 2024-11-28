@@ -16,6 +16,7 @@ func TestShortenURL(t *testing.T) {
 		data         string
 	}{
 		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example.com"},
+		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example123123.com"},
 		{method: http.MethodGet, expectedCode: http.StatusMethodNotAllowed},
 		{method: http.MethodConnect, expectedCode: http.StatusMethodNotAllowed},
 		{method: http.MethodDelete, expectedCode: http.StatusMethodNotAllowed},
@@ -35,8 +36,6 @@ func TestShortenURL(t *testing.T) {
 			res := w.Result()
 			// проверяем код ответа
 			require.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
-
-			// получаем и проверяем тело запроса
 			defer res.Body.Close()
 		})
 	}
@@ -45,10 +44,9 @@ func TestShortenURL(t *testing.T) {
 func TestGetOriginalURL(t *testing.T) {
 	testCases := []struct {
 		method       string
+		target       string
 		expectedCode int
 	}{
-		{method: http.MethodGet, expectedCode: http.StatusTemporaryRedirect},
-
 		{method: http.MethodPost, expectedCode: http.StatusMethodNotAllowed},
 		{method: http.MethodConnect, expectedCode: http.StatusMethodNotAllowed},
 		{method: http.MethodDelete, expectedCode: http.StatusMethodNotAllowed},
@@ -58,17 +56,30 @@ func TestGetOriginalURL(t *testing.T) {
 		{method: http.MethodPut, expectedCode: http.StatusMethodNotAllowed},
 		{method: http.MethodTrace, expectedCode: http.StatusMethodNotAllowed},
 	}
+
+	for k := range urlStore {
+		// Добавляем новые элементы в testCases
+		testCases = append(testCases, struct {
+			method       string
+			target       string
+			expectedCode int
+		}{
+			method:       http.MethodGet,
+			target:       k,
+			expectedCode: http.StatusTemporaryRedirect,
+		})
+	}
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
+			r := httptest.NewRequest(tc.method, "/"+tc.target, nil)
+			w := httptest.NewRecorder()
 
-			for k := range urlStore {
-				r := httptest.NewRequest(tc.method, "http://localhost:8080/"+k, nil)
-				w := httptest.NewRecorder()
+			GetOriginalURL(w, r)
 
-				GetOriginalURL(w, r)
-
-				require.Equal(t, tc.expectedCode, w.Code, "Код ответа не совпадает с ожидаемым")
-			}
+			res := w.Result()
+			// проверяем код ответа
+			require.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
+			defer res.Body.Close()
 		})
 	}
 }
