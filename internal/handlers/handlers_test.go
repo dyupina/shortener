@@ -39,13 +39,15 @@ func TestShortenURL(t *testing.T) {
 			res := w.Result()
 			// проверяем код ответа
 			assert.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
+
 			// получаем и проверяем тело запроса
+			defer res.Body.Close()
 			resBody, err := io.ReadAll(res.Body) // тут либо "Only POST requests are allowed!",
 			// либо "http://localhost:8080/" + shortID
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedCode, w.Result().StatusCode, "Код ответа не совпадает с ожидаемым")
 
-			defer res.Body.Close()
+			assert.NoError(t, err)
+
+			assert.Equal(t, tc.expectedCode, w.Result().StatusCode, "Код ответа не совпадает с ожидаемым")
 
 			id := path.Base(string(resBody))
 			TestURLStore[id] = urlStore[id]
