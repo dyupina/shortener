@@ -2,17 +2,12 @@ package handlers
 
 import (
 	"bytes"
-	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"path"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-var TestURLStore = make(map[string]string)
 
 func TestShortenURL(t *testing.T) {
 	testCases := []struct {
@@ -43,11 +38,6 @@ func TestShortenURL(t *testing.T) {
 
 			// получаем и проверяем тело запроса
 			defer res.Body.Close()
-			resBody, _ := io.ReadAll(res.Body) // тут либо "Only POST requests are allowed!",
-			// либо "http://localhost:8080/" + shortID
-
-			id := path.Base(string(resBody))
-			TestURLStore[id] = urlStore[id]
 		})
 	}
 }
@@ -71,8 +61,7 @@ func TestGetOriginalURL(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
 
-			for k, v := range TestURLStore {
-				fmt.Printf("k:%s    v:%s\n\r", k, v)
+			for k := range urlStore {
 				r := httptest.NewRequest(tc.method, "http://localhost:8080/"+k, nil)
 				w := httptest.NewRecorder()
 
