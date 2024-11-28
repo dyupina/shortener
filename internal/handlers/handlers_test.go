@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var TestUrlStore = make(map[string]string)
+var TestURLStore = make(map[string]string)
 
 func TestShortenURL(t *testing.T) {
 	testCases := []struct {
@@ -40,14 +40,15 @@ func TestShortenURL(t *testing.T) {
 			// проверяем код ответа
 			assert.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
 			// получаем и проверяем тело запроса
-			defer res.Body.Close()
 			resBody, err := io.ReadAll(res.Body) // тут либо "Only POST requests are allowed!",
 			// либо "http://localhost:8080/" + shortID
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedCode, w.Result().StatusCode, "Код ответа не совпадает с ожидаемым")
 
+			defer res.Body.Close()
+
 			id := path.Base(string(resBody))
-			TestUrlStore[id] = urlStore[id]
+			TestURLStore[id] = urlStore[id]
 		})
 	}
 }
@@ -71,7 +72,7 @@ func TestGetOriginalURL(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
 
-			for k := range TestUrlStore {
+			for k := range TestURLStore {
 				r := httptest.NewRequest(tc.method, "/"+k, nil)
 				w := httptest.NewRecorder()
 
