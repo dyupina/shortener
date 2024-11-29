@@ -3,6 +3,7 @@ package handlers
 import (
 	"io"
 	"net/http"
+	"shortener/internal/config"
 	"strings"
 
 	"github.com/9ssi7/nanoid"
@@ -30,7 +31,7 @@ func ShortenURL(res http.ResponseWriter, req *http.Request) {
 
 	urlStore[shortID] = originalURL
 
-	shortURL := "http://localhost:8080/" + shortID
+	shortURL := config.Addr.BaseURL + "/" + shortID
 
 	res.WriteHeader(http.StatusCreated)
 	res.Write([]byte(shortURL))
