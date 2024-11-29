@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"shortener/internal/config"
 	"shortener/internal/handlers"
 
 	"github.com/go-chi/chi/v5"
@@ -11,14 +12,17 @@ import (
 )
 
 func main() {
+	config.Init()
+
 	r := chi.NewRouter()
 
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.Logger)
 
 	r.Post("/", handlers.ShortenURL)
 	r.Get("/{id}", handlers.GetOriginalURL)
 
-	err := http.ListenAndServe(":8080", r)
+	err := http.ListenAndServe(config.Addr, r)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
