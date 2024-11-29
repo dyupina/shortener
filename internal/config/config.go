@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 	"flag"
-	"net/url"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -39,9 +39,6 @@ func Init() {
 	})
 
 	flag.Func("b", "базовый адрес результирующего сокращённого URL", func(flagValue string) error {
-		if _, err := url.ParseRequestURI(flagValue); err != nil {
-			return errors.New("need a valid url")
-		}
 		addr.BaseURL = flagValue
 		return nil
 	})
@@ -49,9 +46,9 @@ func Init() {
 	// запускаем парсинг
 	flag.Parse()
 
-	// fmt.Println(addr.Host)
-	// fmt.Println(addr.Port)
-	// fmt.Println(addr.BaseURL)
+	fmt.Println(addr.Host)
+	fmt.Println(addr.Port)
+	fmt.Println(addr.BaseURL)
 
 	Addr = addr
 }
