@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -22,7 +23,9 @@ func main() {
 	r.Post("/", handlers.ShortenURL)
 	r.Get("/{id}", handlers.GetOriginalURL)
 
-	err := http.ListenAndServe(config.Cfg.Addr, r)
+	fmt.Printf("%s\n%s\n", config.Addr, config.BaseURL)
+
+	err := http.ListenAndServe(config.Addr, r)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

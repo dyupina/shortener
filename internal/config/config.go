@@ -12,48 +12,43 @@
 /*
 export SERVER_ADDRESS=localhost:5555
 export BASE_URL=http://localhost:5555
+
+echo $SERVER_ADDRESS && echo $BASE_URL
+
+unset SERVER_ADDRESS && unset BASE_URL
 */
 
 package config
 
 import (
 	"flag"
-	"log"
 	"os"
-
-	"github.com/caarlos0/env/v6"
 )
-
-var Cfg Config
 
 type Config struct {
 	Addr    string `env:"SERVER_ADDRESS"`
 	BaseURL string `env:"BASE_URL"`
 }
 
-func Init() {
-	var cfg Config
+var (
+	Addr    string
+	BaseURL string
+)
 
+func Init() {
 	// значения по-умолчанию
-	cfg.Addr = "lo55555calhost:8080"
-	cfg.BaseURL = "http://localhost:8080"
+	Addr = "localhost:8080"
+	BaseURL = "http://localhost:8080"
 
 	if val, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
-		cfg.Addr = val
+		Addr = val
 	}
 	if val, exist := os.LookupEnv("BASE_URL"); exist {
-		cfg.BaseURL = val
-	}
-	Cfg = cfg
-
-	err := env.Parse(&Cfg)
-
-	if err != nil {
-		log.Fatal(err)
+		BaseURL = val
 	}
 
-	flag.StringVar(&Cfg.Addr, "a", Cfg.Addr, "адрес запуска HTTP-сервера")
-	flag.StringVar(&Cfg.BaseURL, "b", Cfg.BaseURL, "базовый адрес результирующего сокращённого URL")
+	flag.StringVar(&Addr, "a", Addr, "адрес запуска HTTP-сервера")
+	flag.StringVar(&BaseURL, "b", BaseURL, "базовый адрес результирующего сокращённого URL")
 
 	// запускаем парсинг
 	flag.Parse()
