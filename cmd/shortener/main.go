@@ -15,8 +15,8 @@ func main() {
 
 	r.Use(middleware.Recoverer)
 
-	r.Get("/", handlers.GetOriginalURL)
-	r.Post("/{id}", handlers.ShortenURL)
+	r.Post("/", handlers.ShortenURL)
+	r.Get("/{id}", handlers.GetOriginalURL)
 
 	err := http.ListenAndServe(":8080", r)
 	if err != nil {
