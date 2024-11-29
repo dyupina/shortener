@@ -1,19 +1,25 @@
 package main
 
 import (
-	// "io"
+	"log"
 	"net/http"
+
 	"shortener/internal/handlers"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
 
-	mux.HandleFunc("/", handlers.ShortenURL)
-	mux.HandleFunc("/{id}", handlers.GetOriginalURL)
+	r.Use(middleware.Recoverer)
 
-	err := http.ListenAndServe(`:8080`, mux)
+	r.Get("/endpoint1", handlers.GetOriginalURL)
+	r.Post("/{id}", handlers.ShortenURL)
+
+	err := http.ListenAndServe(":8080", r)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
