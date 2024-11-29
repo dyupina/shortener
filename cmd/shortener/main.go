@@ -22,7 +22,7 @@ func main() {
 	r.Post("/", handlers.ShortenURL)
 	r.Get("/{id}", handlers.GetOriginalURL)
 
-	err := http.ListenAndServe(config.Addr, r)
+	err := http.ListenAndServe(config.Cfg.Addr, r)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
