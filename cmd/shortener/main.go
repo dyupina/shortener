@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 
 	"shortener/internal/config"
 	"shortener/internal/handlers"
@@ -24,10 +22,7 @@ func main() {
 	r.Post("/", handlers.ShortenURL)
 	r.Get("/{id}", handlers.GetOriginalURL)
 
-	addr := config.Addr.Host + ":" + strconv.Itoa(config.Addr.Port)
-	fmt.Printf(">>>>> %s\n", addr)
-
-	err := http.ListenAndServe(addr, r)
+	err := http.ListenAndServe(config.Addr, r)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

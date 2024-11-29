@@ -31,7 +31,7 @@ func ShortenURL(res http.ResponseWriter, req *http.Request) {
 
 	urlStore[shortID] = originalURL
 
-	shortURL := config.Addr.BaseURL + "/" + shortID
+	shortURL := config.BaseURL + "/" + shortID
 
 	res.WriteHeader(http.StatusCreated)
 	res.Write([]byte(shortURL))
