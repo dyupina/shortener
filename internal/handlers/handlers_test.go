@@ -6,6 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"shortener/internal/config"
+	"shortener/internal/storage"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,12 +29,18 @@ func TestShortenURL(t *testing.T) {
 		{method: http.MethodPut, expectedCode: http.StatusMethodNotAllowed},
 		{method: http.MethodTrace, expectedCode: http.StatusMethodNotAllowed},
 	}
+
+	c := *config.NewConfig()
+	s := *storage.NewURLstorage()
+
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
 			r := httptest.NewRequest(tc.method, "/", bytes.NewBufferString(tc.data))
 			w := httptest.NewRecorder()
 
-			ShortenURL(w, r)
+			handler := ShortenURL(c, s)
+
+			handler.ServeHTTP(w, r)
 
 			res := w.Result()
 			// проверяем код ответа
@@ -57,7 +66,12 @@ func TestGetOriginalURL(t *testing.T) {
 		{method: http.MethodTrace, expectedCode: http.StatusMethodNotAllowed},
 	}
 
-	for k := range urlStore {
+	c := *config.NewConfig()
+	s := *storage.NewURLstorage()
+
+	s.UpdateData(generateShortID(), c.Addr) // ???????
+
+	for k := range s.URL_Storage {
 		// Добавляем новые элементы в testCases
 		testCases = append(testCases, struct {
 			method       string
@@ -74,7 +88,9 @@ func TestGetOriginalURL(t *testing.T) {
 			r := httptest.NewRequest(tc.method, "/"+tc.target, nil)
 			w := httptest.NewRecorder()
 
-			GetOriginalURL(w, r)
+			handler := GetOriginalURL(s)
+
+			handler.ServeHTTP(w, r)
 
 			res := w.Result()
 			// проверяем код ответа
