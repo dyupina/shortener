@@ -25,30 +25,42 @@ import (
 	"os"
 )
 
-type Config struct {
-	Addr    string `env:"SERVER_ADDRESS"`
-	BaseURL string `env:"BASE_URL"`
-}
+// type Config struct {
+// 	Addr    string `env:"SERVER_ADDRESS"`
+// 	BaseURL string `env:"BASE_URL"`
+// }
 
-var (
+// var (
+// 	Addr    string
+// 	BaseURL string
+// )
+
+type Config struct {
 	Addr    string
 	BaseURL string
-)
+}
 
-func Init() {
+func NewConfig() *Config {
+	return &Config{
+		Addr:    "localhost:8080",
+		BaseURL: "http://localhost:8080",
+	}
+}
+
+func Init(c *Config) {
 	// значения по-умолчанию
-	Addr = "localhost:8080"
-	BaseURL = "http://localhost:8080"
+	// Addr = "localhost:8080"
+	// BaseURL = "http://localhost:8080"
 
 	if val, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
-		Addr = val
+		c.Addr = val
 	}
 	if val, exist := os.LookupEnv("BASE_URL"); exist {
-		BaseURL = val
+		c.BaseURL = val
 	}
 
-	flag.StringVar(&Addr, "a", Addr, "адрес запуска HTTP-сервера")
-	flag.StringVar(&BaseURL, "b", BaseURL, "базовый адрес результирующего сокращённого URL")
+	flag.StringVar(&c.Addr, "a", c.Addr, "адрес запуска HTTP-сервера")
+	flag.StringVar(&c.BaseURL, "b", c.BaseURL, "базовый адрес результирующего сокращённого URL")
 
 	// запускаем парсинг
 	flag.Parse()
