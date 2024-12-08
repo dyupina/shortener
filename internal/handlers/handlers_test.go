@@ -71,7 +71,7 @@ func TestGetOriginalURL(t *testing.T) {
 
 	s.UpdateData(generateShortID(), c.Addr) // ???????
 
-	for k := range s.URL_Storage {
+	for k := range s.URLStorage {
 		// Добавляем новые элементы в testCases
 		testCases = append(testCases, struct {
 			method       string

@@ -32,7 +32,7 @@ func ShortenURL(c config.Config, s storage.Storage) http.HandlerFunc {
 		shortID := generateShortID()
 
 		s.UpdateData(shortID, originalURL)
-		// s.URL_Storage[shortID] = originalURL
+		// s.URLStorage[shortID] = originalURL
 
 		res.WriteHeader(http.StatusCreated)
 		res.Write([]byte(c.BaseURL + "/" + shortID))
@@ -52,7 +52,7 @@ func GetOriginalURL(s storage.Storage) http.HandlerFunc {
 		// id := req.PathValue("id")
 		id := strings.TrimPrefix(req.URL.Path, "/")
 
-		// originalURL, exists := s.URL_Storage[id]
+		// originalURL, exists := s.URLStorage[id]
 		originalURL, err := s.GetData(id)
 
 		if err != nil {

@@ -5,11 +5,11 @@ import (
 )
 
 type Storage struct {
-	URL_Storage map[string]string
+	URLStorage map[string]string
 }
 
 func NewURLstorage() *Storage {
-	return &Storage{URL_Storage: make(map[string]string)}
+	return &Storage{URLStorage: make(map[string]string)}
 }
 
 type Repository interface {
@@ -18,7 +18,7 @@ type Repository interface {
 }
 
 func (s *Storage) GetData(key string) (string, error) {
-	value, exists := s.URL_Storage[key]
+	value, exists := s.URLStorage[key]
 	if !exists {
 		return "", fmt.Errorf("key not found: %s", key)
 	}
@@ -26,6 +26,6 @@ func (s *Storage) GetData(key string) (string, error) {
 }
 
 func (s *Storage) UpdateData(key, value string) error {
-	s.URL_Storage[key] = value
+	s.URLStorage[key] = value
 	return nil
 }
