@@ -84,9 +84,11 @@ func TestGetOriginalURL(t *testing.T) {
 
 			handler := controller.ShortenURL(c, s)
 			handler.ServeHTTP(w, r)
+			res1 := w.Result()
+			defer res1.Body.Close()
 
 			// Получить сокращённую ссылку из ответа
-			shortURLfromServer, _ := io.ReadAll(w.Result().Body)
+			shortURLfromServer, _ := io.ReadAll(res1.Body)
 
 			// Отправить GET-запрос для получения исходной ссылки по краткой
 			r2 := httptest.NewRequest(tc.method, string(shortURLfromServer), nil)
@@ -95,7 +97,10 @@ func TestGetOriginalURL(t *testing.T) {
 			handler2 := controller.GetOriginalURL(s)
 			handler2.ServeHTTP(w2, r2)
 
-			respGetBody, _ := io.ReadAll(w2.Result().Body)
+			res2 := w2.Result()
+			defer res2.Body.Close()
+
+			respGetBody, _ := io.ReadAll(res2.Body)
 
 			re := regexp.MustCompile(`href="([^"]*)"`)
 			match := re.FindStringSubmatch(string(respGetBody))
@@ -104,7 +109,7 @@ func TestGetOriginalURL(t *testing.T) {
 			require.Equal(t, tc.orig, match[1], "Ссылки должны совпадать")
 
 			// Проверяем код ответа
-			require.Equal(t, tc.expectedCode, w2.Result().StatusCode, "Код ответа не совпадает с ожидаемым")
+			require.Equal(t, tc.expectedCode, res2.StatusCode, "Код ответа не совпадает с ожидаемым")
 
 		})
 	}
