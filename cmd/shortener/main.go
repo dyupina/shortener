@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -19,15 +18,14 @@ func main() {
 
 	s := *storage.NewURLstorage()
 
-	r := chi.NewRouter()
+	controller := &handlers.Controller{}
 
+	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
 
-	r.Post("/", handlers.ShortenURL(c, s))
-	r.Get("/{id}", handlers.GetOriginalURL(s))
-
-	fmt.Printf("%s\n%s\n", c.Addr, c.BaseURL)
+	r.Post("/", controller.ShortenURL(c, s))
+	r.Get("/{id}", controller.GetOriginalURL(s))
 
 	err := http.ListenAndServe(c.Addr, r)
 	if err != nil {

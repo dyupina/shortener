@@ -5,20 +5,24 @@ import (
 	"net/http"
 	"shortener/internal/config"
 	"shortener/internal/storage"
-	"strings"
 
 	"github.com/9ssi7/nanoid"
+	"github.com/go-chi/chi/v5"
 )
 
-// var urlStore = make(map[string]string)
+type Handler interface {
+	ShortenURL(c config.Config, s storage.Storage) http.HandlerFunc
+	GetOriginalURL(s storage.Storage) http.HandlerFunc
+}
+
+type Controller struct{}
 
 func generateShortID() string {
 	id, _ := nanoid.New()
 	return id
 }
 
-// curl -X POST http://localhost:8080 -H "Content-Type: text/plain" -d "https://example.com"
-func ShortenURL(c config.Config, s storage.Storage) http.HandlerFunc {
+func (con *Controller) ShortenURL(c config.Config, s storage.Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		// этот обработчик принимает только запросы, отправленные методом POST
 		if req.Method != http.MethodPost {
@@ -26,13 +30,11 @@ func ShortenURL(c config.Config, s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		body, _ := io.ReadAll(req.Body) // тело запроса
+		body, _ := io.ReadAll(req.Body)
 		originalURL := string(body)
-
 		shortID := generateShortID()
 
 		s.UpdateData(shortID, originalURL)
-		// s.URLStorage[shortID] = originalURL
 
 		res.WriteHeader(http.StatusCreated)
 		res.Write([]byte(c.BaseURL + "/" + shortID))
@@ -40,7 +42,7 @@ func ShortenURL(c config.Config, s storage.Storage) http.HandlerFunc {
 
 }
 
-func GetOriginalURL(s storage.Storage) http.HandlerFunc {
+func (con *Controller) GetOriginalURL(s storage.Storage) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		// этот обработчик принимает только запросы, отправленные методом GET
 		if req.Method != http.MethodGet {
@@ -48,11 +50,8 @@ func GetOriginalURL(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		// получить id из /{id}
-		// id := req.PathValue("id")
-		id := strings.TrimPrefix(req.URL.Path, "/")
-
-		// originalURL, exists := s.URLStorage[id]
+		id := chi.URLParam(req, "id")
+		// id := strings.TrimPrefix(req.URL.Path, "/")
 		originalURL, err := s.GetData(id)
 
 		if err != nil {

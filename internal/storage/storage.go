@@ -27,5 +27,6 @@ func (s *Storage) GetData(key string) (string, error) {
 
 func (s *Storage) UpdateData(key, value string) error {
 	s.URLStorage[key] = value
+	//          short   orig
 	return nil
 }
