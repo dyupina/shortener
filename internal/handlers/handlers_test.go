@@ -64,29 +64,38 @@ func TestGetOriginalURL(t *testing.T) {
 	}
 
 	c := *config.NewConfig()
+	s := *storage.NewURLstorage()
 
-	// Отключить автоматические редиректы (иначе была ошибка при выполнении Get запроса)
-	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	controller := &Controller{}
+
+	// // Отключить автоматические редиректы (иначе была ошибка при выполнении Get запроса)
+	// client := &http.Client{
+	// 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+	// 		return http.ErrUseLastResponse
+	// 	},
+	// }
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
+
 			// Отправить запрос на сокращение ссылки tc.orig
-			respPost, err := client.Post(c.BaseURL, "text/plain", bytes.NewBufferString(tc.orig))
-			require.NoError(t, err, "Не удалось отправить POST-запрос")
-			defer respPost.Body.Close()
+			r := httptest.NewRequest("POST", c.BaseURL, bytes.NewBufferString(tc.orig))
+			w := httptest.NewRecorder()
+
+			handler := controller.ShortenURL(c, s)
+			handler.ServeHTTP(w, r)
 
 			// Получить сокращённую ссылку из ответа
-			shortURLfromServer, _ := io.ReadAll(respPost.Body)
+			shortURLfromServer, _ := io.ReadAll(w.Result().Body)
 
 			// Отправить GET-запрос для получения исходной ссылки по краткой
-			respGet, err := client.Get(string(shortURLfromServer))
-			require.NoError(t, err, "Не удалось отправить GET-запрос")
-			defer respGet.Body.Close()
-			respGetBody, _ := io.ReadAll(respGet.Body)
+			r2 := httptest.NewRequest(tc.method, string(shortURLfromServer), nil)
+			w2 := httptest.NewRecorder()
+
+			handler2 := controller.GetOriginalURL(s)
+			handler2.ServeHTTP(w2, r2)
+
+			respGetBody, _ := io.ReadAll(w2.Result().Body)
 
 			re := regexp.MustCompile(`href="([^"]*)"`)
 			match := re.FindStringSubmatch(string(respGetBody))
@@ -95,7 +104,8 @@ func TestGetOriginalURL(t *testing.T) {
 			require.Equal(t, tc.orig, match[1], "Ссылки должны совпадать")
 
 			// Проверяем код ответа
-			require.Equal(t, tc.expectedCode, respGet.StatusCode, "Код ответа не совпадает с ожидаемым")
+			require.Equal(t, tc.expectedCode, w2.Result().StatusCode, "Код ответа не совпадает с ожидаемым")
+
 		})
 	}
 }
