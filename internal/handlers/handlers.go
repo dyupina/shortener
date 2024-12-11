@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"shortener/internal/config"
 	"shortener/internal/storage"
+	"strings"
 
 	"github.com/9ssi7/nanoid"
-	"github.com/go-chi/chi/v5"
 )
 
 type Handler interface {
@@ -50,8 +50,8 @@ func (con *Controller) GetOriginalURL(s storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		id := chi.URLParam(req, "id")
-		// id := strings.TrimPrefix(req.URL.Path, "/")
+		// id := chi.URLParam(req, "id")
+		id := strings.TrimPrefix(req.URL.Path, "/")
 		originalURL, err := s.GetData(id)
 
 		if err != nil {

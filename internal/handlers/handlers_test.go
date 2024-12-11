@@ -68,13 +68,6 @@ func TestGetOriginalURL(t *testing.T) {
 
 	controller := &Controller{}
 
-	// // Отключить автоматические редиректы (иначе была ошибка при выполнении Get запроса)
-	// client := &http.Client{
-	// 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-	// 		return http.ErrUseLastResponse
-	// 	},
-	// }
-
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
 
