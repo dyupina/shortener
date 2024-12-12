@@ -22,27 +22,18 @@ func TestShortenURL(t *testing.T) {
 	}{
 		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example.com"},
 		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example123123.com"},
-		{method: http.MethodGet, expectedCode: http.StatusMethodNotAllowed},
-		{method: http.MethodConnect, expectedCode: http.StatusMethodNotAllowed},
-		{method: http.MethodDelete, expectedCode: http.StatusMethodNotAllowed},
-		{method: http.MethodHead, expectedCode: http.StatusMethodNotAllowed},
-		{method: http.MethodOptions, expectedCode: http.StatusMethodNotAllowed},
-		{method: http.MethodPatch, expectedCode: http.StatusMethodNotAllowed},
-		{method: http.MethodPut, expectedCode: http.StatusMethodNotAllowed},
-		{method: http.MethodTrace, expectedCode: http.StatusMethodNotAllowed},
 	}
 
-	c := *config.NewConfig()
-	s := *storage.NewURLstorage()
-
-	controller := &Controller{}
+	c := config.NewConfig()
+	s := storage.NewURLstorage()
+	controller := NewController(c, s)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
 			r := httptest.NewRequest(tc.method, "/", bytes.NewBufferString(tc.data))
 			w := httptest.NewRecorder()
 
-			handler := controller.ShortenURL(c, s)
+			handler := controller.ShortenURL()
 			handler.ServeHTTP(w, r)
 
 			res := w.Result()
@@ -63,19 +54,17 @@ func TestGetOriginalURL(t *testing.T) {
 		{method: http.MethodGet, orig: "https://example_2.com", expectedCode: http.StatusTemporaryRedirect},
 	}
 
-	c := *config.NewConfig()
-	s := *storage.NewURLstorage()
-
-	controller := &Controller{}
+	c := config.NewConfig()
+	s := storage.NewURLstorage()
+	controller := NewController(c, s)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
-
 			// Отправить запрос на сокращение ссылки tc.orig
 			r := httptest.NewRequest("POST", c.BaseURL, bytes.NewBufferString(tc.orig))
 			w := httptest.NewRecorder()
 
-			handler := controller.ShortenURL(c, s)
+			handler := controller.ShortenURL()
 			handler.ServeHTTP(w, r)
 			res1 := w.Result()
 			defer res1.Body.Close()
@@ -87,7 +76,7 @@ func TestGetOriginalURL(t *testing.T) {
 			r2 := httptest.NewRequest(tc.method, string(shortURLfromServer), nil)
 			w2 := httptest.NewRecorder()
 
-			handler2 := controller.GetOriginalURL(s)
+			handler2 := controller.GetOriginalURL()
 			handler2.ServeHTTP(w2, r2)
 
 			res2 := w2.Result()
@@ -103,7 +92,6 @@ func TestGetOriginalURL(t *testing.T) {
 
 			// Проверяем код ответа
 			require.Equal(t, tc.expectedCode, res2.StatusCode, "Код ответа не совпадает с ожидаемым")
-
 		})
 	}
 }

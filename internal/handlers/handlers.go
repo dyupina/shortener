@@ -4,55 +4,48 @@ import (
 	"io"
 	"net/http"
 	"shortener/internal/config"
-	"shortener/internal/storage"
+
 	"strings"
 
 	"github.com/9ssi7/nanoid"
 )
 
-type Handler interface {
-	ShortenURL(c config.Config, s storage.Storage) http.HandlerFunc
-	GetOriginalURL(s storage.Storage) http.HandlerFunc
+type stor interface {
+	UpdateData(shortID, originalURL string)
+	GetData(shortID string) (string, error)
 }
 
-type Controller struct{}
+type Controller struct {
+	config *config.Config
+	st     stor
+}
+
+func NewController(config *config.Config, st stor) *Controller {
+	return &Controller{config: config, st: st}
+}
 
 func generateShortID() string {
 	id, _ := nanoid.New()
 	return id
 }
 
-func (con *Controller) ShortenURL(c config.Config, s storage.Storage) http.HandlerFunc {
+func (con *Controller) ShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		// этот обработчик принимает только запросы, отправленные методом POST
-		if req.Method != http.MethodPost {
-			http.Error(res, "Only POST requests are allowed!", http.StatusMethodNotAllowed)
-			return
-		}
-
 		body, _ := io.ReadAll(req.Body)
 		originalURL := string(body)
 		shortID := generateShortID()
 
-		s.UpdateData(shortID, originalURL)
+		con.st.UpdateData(shortID, originalURL)
 
 		res.WriteHeader(http.StatusCreated)
-		res.Write([]byte(c.BaseURL + "/" + shortID))
+		res.Write([]byte(con.config.BaseURL + "/" + shortID))
 	}
-
 }
 
-func (con *Controller) GetOriginalURL(s storage.Storage) http.HandlerFunc {
+func (con *Controller) GetOriginalURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		// этот обработчик принимает только запросы, отправленные методом GET
-		if req.Method != http.MethodGet {
-			http.Error(res, "Only GET requests are allowed!", http.StatusMethodNotAllowed)
-			return
-		}
-
-		// id := chi.URLParam(req, "id")
 		id := strings.TrimPrefix(req.URL.Path, "/")
-		originalURL, err := s.GetData(id)
+		originalURL, err := con.st.GetData(id)
 
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)

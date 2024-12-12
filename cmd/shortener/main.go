@@ -6,6 +6,7 @@ import (
 
 	"shortener/internal/config"
 	"shortener/internal/handlers"
+
 	"shortener/internal/storage"
 
 	"github.com/go-chi/chi/v5"
@@ -13,19 +14,19 @@ import (
 )
 
 func main() {
-	c := *config.NewConfig()
-	config.Init(&c)
+	c := config.NewConfig()
+	config.Init(c)
 
-	s := *storage.NewURLstorage()
+	s := storage.NewURLstorage()
 
-	controller := &handlers.Controller{}
+	controller := handlers.NewController(c, s)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
 
-	r.Post("/", controller.ShortenURL(c, s))
-	r.Get("/{id}", controller.GetOriginalURL(s))
+	r.Post("/", controller.ShortenURL())
+	r.Get("/{id}", controller.GetOriginalURL())
 
 	err := http.ListenAndServe(c.Addr, r)
 	if err != nil {
