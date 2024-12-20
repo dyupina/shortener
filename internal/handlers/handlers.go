@@ -135,11 +135,11 @@ func (con *Controller) APIShortenURL() http.HandlerFunc {
 
 		resp, err := json.Marshal(shorturl)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(res, "Bad Request", http.StatusBadRequest)
 			return
 		}
 		res.Header().Set("Content-Type", "application/json")
-		res.WriteHeader(http.StatusOK)
+		res.WriteHeader(http.StatusCreated)
 		_, err = res.Write(resp)
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
