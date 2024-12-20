@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"io"
-	"log"
 	"net/http"
 	"shortener/internal/config"
 	"time"
 
+	"encoding/json"
 	"strings"
 
 	"github.com/9ssi7/nanoid"
@@ -108,7 +108,42 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 		res.WriteHeader(http.StatusCreated)
 		_, err := res.Write([]byte(con.conf.BaseURL + "/" + shortID))
 		if err != nil {
-			log.Print("Error writing short URL") // ????????
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+	}
+}
+
+func (con *Controller) APIShortenURL() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		var origurl struct {
+			URL string `json:"url"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&origurl); err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+		originalURL := origurl.URL
+		shortID := generateShortID()
+
+		con.st.UpdateData(shortID, originalURL)
+
+		var shorturl struct {
+			URL string `json:"result"`
+		}
+		shorturl.URL = con.conf.BaseURL + "/" + shortID
+
+		resp, err := json.Marshal(shorturl)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusOK)
+		_, err = res.Write(resp)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
 		}
 	}
 }

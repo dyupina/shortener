@@ -30,7 +30,9 @@ func main() {
 	r.Post("/", handlers.WithLogging(c.Sugar, controller.ShortenURL()))
 	r.Get("/{id}", handlers.WithLogging(c.Sugar, controller.GetOriginalURL()))
 
-	err := http.ListenAndServe(c.Addr, r)
+	r.Post("/api/shorten", handlers.WithLogging(c.Sugar, controller.APIShortenURL()))
+
+	err := http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
