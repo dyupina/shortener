@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,37 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestAPIShortenURL(t *testing.T) {
+	testCases := []struct {
+		method       string
+		expectedCode int
+		data         string
+	}{
+		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example.com"},
+		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example123123.com"},
+	}
+
+	c := config.NewConfig()
+	s := storage.NewURLstorage()
+	controller := NewController(c, s)
+
+	for _, tc := range testCases {
+		t.Run(tc.method, func(t *testing.T) {
+			r := httptest.NewRequest(tc.method, "/api/shorten", bytes.NewBufferString(fmt.Sprintf(`{"url":"%s"}`, tc.data)))
+			w := httptest.NewRecorder()
+
+			handler := controller.ShortenURL()
+			handler.ServeHTTP(w, r)
+
+			res := w.Result()
+			// проверяем код ответа
+			require.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
+			defer res.Body.Close()
+		})
+	}
+
+}
 
 func TestShortenURL(t *testing.T) {
 	testCases := []struct {
