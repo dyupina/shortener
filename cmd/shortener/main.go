@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"shortener/internal/config"
 	"shortener/internal/handlers"
@@ -23,12 +24,15 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Logger)
+	r.Use(middleware.Timeout(time.Duration(c.Timeout) * time.Second))
+	r.Use(controller.MiddlewareLogging)
+	r.Use(controller.MiddlewareCompressing)
 
 	r.Post("/", controller.ShortenURL())
 	r.Get("/{id}", controller.GetOriginalURL())
+	r.Post("/api/shorten", controller.APIShortenURL())
 
-	err := http.ListenAndServe(c.Addr, r)
+	err := http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

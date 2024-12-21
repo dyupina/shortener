@@ -8,12 +8,14 @@ import (
 type Config struct {
 	Addr    string
 	BaseURL string
+	Timeout int
 }
 
 func NewConfig() *Config {
 	return &Config{
 		Addr:    "localhost:8080",
 		BaseURL: "http://localhost:8080",
+		Timeout: 15,
 	}
 }
 
