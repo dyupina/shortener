@@ -198,12 +198,9 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 
 		if strings.Contains(req.Header.Get("Content-Type"), "application/json") {
 			originalURL = extractURLfromJSON(res, req)
-		}
-
-		if strings.Contains(req.Header.Get("Content-Type"), "text/html") {
+		} else if strings.Contains(req.Header.Get("Content-Type"), "text/html") {
 			originalURL = extractURLfromHTML(res, req)
-		}
-		if strings.Contains(req.Header.Get("Content-Type"), "text/plane") {
+		} else { //strings.Contains(req.Header.Get("Content-Type"), "text/plane") {
 			b, _ := io.ReadAll(req.Body)
 			originalURL = string(b)
 		}
