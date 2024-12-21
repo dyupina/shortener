@@ -24,9 +24,6 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
-
-	r.Use(middleware.Logger)
-
 	r.Use(middleware.Timeout(time.Duration(c.Timeout) * time.Second))
 	r.Use(controller.MiddlewareLogging)
 	r.Use(controller.MiddlewareCompressing)
