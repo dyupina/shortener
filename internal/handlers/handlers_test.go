@@ -43,7 +43,6 @@ func TestAPIShortenURL(t *testing.T) {
 			defer res.Body.Close()
 		})
 	}
-
 }
 
 func TestShortenURL(t *testing.T) {

@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
 	"shortener/internal/config"
+	"strconv"
 	"time"
 
 	"encoding/json"
@@ -46,12 +48,32 @@ type store interface {
 }
 
 type Controller struct {
-	conf *config.Config
-	st   store
+	conf  *config.Config
+	st    store
+	sugar zap.SugaredLogger
 }
 
 func NewController(conf *config.Config, st store) *Controller {
-	return &Controller{conf: conf, st: st}
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic("cannot initialize zap")
+	}
+
+	return &Controller{
+		conf:  conf,
+		st:    st,
+		sugar: *logger.Sugar(), // регистратор SugaredLogger
+	}
+}
+
+type gzipWriter struct {
+	http.ResponseWriter
+	Writer io.Writer
+}
+
+func (w gzipWriter) Write(b []byte) (int, error) {
+	// w.Writer будет отвечать за gzip-сжатие, поэтому пишем в него
+	return w.Writer.Write(b)
 }
 
 func generateShortID() string {
@@ -59,14 +81,58 @@ func generateShortID() string {
 	return id
 }
 
-func WithLogging(sugar zap.SugaredLogger, h http.Handler) http.HandlerFunc {
+func (con *Controller) MiddlewareCompressing(next http.Handler) http.Handler {
+	compressFn := func(res http.ResponseWriter, req *http.Request) {
+		// проверяем, что клиент поддерживает gzip-сжатие
+		if !strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+			// если gzip не поддерживается, передаём управление дальше без изменений
+			next.ServeHTTP(res, req)
+			return
+		}
+
+		// Функция сжатия должна работать для контента с типами application/json и text/html
+		if !strings.Contains(req.Header.Get("Content-Type"), "application/json") &&
+			!strings.Contains(req.Header.Get("Content-Type"), "text/html") {
+			// если типы не такие, сжатие не используем
+			next.ServeHTTP(res, req)
+			return
+		}
+
+		// Сжатие маленького тела (до 1400 байт)
+		minSize := 1400
+		contentLength, _ := strconv.Atoi(req.Header.Get("Content-Length"))
+		if contentLength < minSize {
+			// если размер меньше minSize байт, сжатие не используем
+			next.ServeHTTP(res, req)
+			return
+		}
+
+		// создаём gzip.Writer поверх текущего res
+		gzip, err := gzip.NewWriterLevel(res, gzip.BestSpeed)
+		if err != nil {
+			http.Error(res, "Error creating gzip.Writer", http.StatusBadRequest)
+			return
+		}
+
+		defer gzip.Close()
+
+		res.Header().Set("Content-Encoding", "gzip")
+		// передаём обработчику страницы переменную типа gzipWriter для вывода данных
+		next.ServeHTTP(gzipWriter{ResponseWriter: res, Writer: gzip}, req)
+	}
+
+	return http.HandlerFunc(compressFn)
+}
+
+func (con *Controller) MiddlewareLogging(next http.Handler) http.Handler {
 	logFn := func(res http.ResponseWriter, req *http.Request) {
+		sugar := con.sugar
 		start := time.Now()
 		uri := req.RequestURI // эндпоинт
 		method := req.Method  // метод запроса
 
 		if method == http.MethodGet {
-			h.ServeHTTP(res, req)         // обслуживание оригинального запроса
+			next.ServeHTTP(res, req)      // обслуживание оригинального запроса
 			duration := time.Since(start) // время выполнения запроса
 			// отправляем сведения о запросе в zap
 			sugar.Infoln(
@@ -85,7 +151,7 @@ func WithLogging(sugar zap.SugaredLogger, h http.Handler) http.HandlerFunc {
 				ResponseWriter: res, // встраиваем оригинальный http.ResponseWriter
 				responseData:   responseData,
 			}
-			h.ServeHTTP(&lw, req) // внедряем реализацию http.ResponseWriter
+			next.ServeHTTP(&lw, req) // внедряем реализацию http.ResponseWriter
 			sugar.Infoln(
 				"status", responseData.status, // получаем перехваченный код статуса ответа
 				"size", responseData.size, // получаем перехваченный размер ответа

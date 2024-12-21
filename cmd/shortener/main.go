@@ -24,13 +24,13 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Logger)
 	r.Use(middleware.Timeout(time.Duration(c.Timeout) * time.Second))
+	r.Use(controller.MiddlewareLogging)
+	r.Use(controller.MiddlewareCompressing)
 
-	r.Post("/", handlers.WithLogging(c.Sugar, controller.ShortenURL()))
-	r.Get("/{id}", handlers.WithLogging(c.Sugar, controller.GetOriginalURL()))
-
-	r.Post("/api/shorten", handlers.WithLogging(c.Sugar, controller.APIShortenURL()))
+	r.Post("/", controller.ShortenURL())
+	r.Get("/{id}", controller.GetOriginalURL())
+	r.Post("/api/shorten", controller.APIShortenURL())
 
 	err := http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
 	if err != nil {
