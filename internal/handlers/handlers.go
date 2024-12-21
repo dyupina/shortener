@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"shortener/internal/config"
 	"strconv"
 	"time"
@@ -85,7 +87,7 @@ func (con *Controller) MiddlewareCompressing(next http.Handler) http.Handler {
 	compressFn := func(res http.ResponseWriter, req *http.Request) {
 		// проверяем, что клиент поддерживает gzip-сжатие
 		if !strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
-			// если gzip не поддерживается, передаём управление дальше без изменений
+			// если gzip не используется, передаём управление дальше без изменений
 			next.ServeHTTP(res, req)
 			return
 		}
@@ -163,10 +165,50 @@ func (con *Controller) MiddlewareLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(logFn)
 }
 
+func extractURLfromHTML(res http.ResponseWriter, req *http.Request) string {
+	b, _ := io.ReadAll(req.Body)
+	body := string(b)
+
+	// Регулярное выражение для извлечения URL из href
+	re := regexp.MustCompile(`href=['"]([^'"]+)['"]`)
+	matches := re.FindStringSubmatch(body)
+
+	if len(matches) > 1 {
+		return matches[1]
+	} else {
+		http.Error(res, "Bad Request", http.StatusBadRequest)
+		return ""
+	}
+}
+
+func extractURLfromJSON(res http.ResponseWriter, req *http.Request) string {
+	var origurl struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&origurl); err != nil {
+		http.Error(res, "Bad Request", http.StatusBadRequest)
+		return ""
+	}
+	return origurl.URL
+}
+
 func (con *Controller) ShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		body, _ := io.ReadAll(req.Body)
-		originalURL := string(body)
+		var originalURL string
+
+		if strings.Contains(req.Header.Get("Content-Type"), "application/json") {
+			originalURL = extractURLfromJSON(res, req)
+		}
+
+		if strings.Contains(req.Header.Get("Content-Type"), "text/html") {
+			originalURL = extractURLfromHTML(res, req)
+		}
+		if strings.Contains(req.Header.Get("Content-Type"), "text/plane") {
+			b, _ := io.ReadAll(req.Body)
+			originalURL = string(b)
+		}
+		fmt.Printf("ShortenURL(): originalURL: %s\n", originalURL)
+
 		shortID := generateShortID()
 
 		con.st.UpdateData(shortID, originalURL)
@@ -182,14 +224,7 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 
 func (con *Controller) APIShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		var origurl struct {
-			URL string `json:"url"`
-		}
-		if err := json.NewDecoder(req.Body).Decode(&origurl); err != nil {
-			http.Error(res, "Bad Request", http.StatusBadRequest)
-			return
-		}
-		originalURL := origurl.URL
+		originalURL := extractURLfromJSON(res, req)
 		shortID := generateShortID()
 
 		con.st.UpdateData(shortID, originalURL)
@@ -218,6 +253,8 @@ func (con *Controller) GetOriginalURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		id := strings.TrimPrefix(req.URL.Path, "/")
 		originalURL, err := con.st.GetData(id)
+
+		fmt.Printf("GetOriginalURL(): originalURL: %s\n", originalURL)
 
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
