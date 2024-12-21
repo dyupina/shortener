@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 	"regexp"
@@ -253,7 +254,7 @@ func (con *Controller) GetOriginalURL() http.HandlerFunc {
 		id := strings.TrimPrefix(req.URL.Path, "/")
 		originalURL, err := con.st.GetData(id)
 
-		// fmt.Printf("GetOriginalURL(): originalURL: %s\n", originalURL)
+		fmt.Printf("GetOriginalURL(): originalURL: %s\n", originalURL)
 
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
