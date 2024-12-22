@@ -2,10 +2,14 @@ package handlers
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"shortener/internal/config"
+	"shortener/internal/storage"
+	"strconv"
 	"time"
 
 	"encoding/json"
@@ -45,12 +49,34 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 type store interface {
 	UpdateData(shortID, originalURL string)
 	GetData(shortID string) (string, error)
+	GetStorageLen() int
 }
 
 type Controller struct {
 	conf  *config.Config
 	st    store
 	sugar zap.SugaredLogger
+}
+
+func (con *Controller) SaveToURLstorage(shortID, originalURL string) {
+	path := con.conf.URLStorageFile
+	urlFileStorage := storage.StorageJSON{
+		UUID:        strconv.Itoa(con.st.GetStorageLen() + 1),
+		ShortURL:    shortID,
+		OriginalURL: originalURL,
+	}
+
+	file, _ := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0666) //nolint:mnd // read and write permission for all users
+	defer file.Close()
+
+	data, err := json.Marshal(&urlFileStorage)
+	if err != nil {
+		fmt.Printf("error Marshal %s\n", err.Error())
+		return
+	}
+	data = append(data, '\n')
+
+	_, _ = file.Write(data)
 }
 
 func NewController(conf *config.Config, st store) *Controller {
@@ -115,14 +141,14 @@ func (con *Controller) GzipEncodeMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// // Сжатие маленького тела (до 1400 байт)
-		// minSize := 1400
-		// contentLength, _ := strconv.Atoi(req.Header.Get("Content-Length"))
-		// if contentLength < minSize {
-		// 	// если размер меньше minSize байт, сжатие не используем
-		// 	next.ServeHTTP(res, req)
-		// 	return
-		// }
+		// Сжатие маленького тела (до 1400 байт)
+		minSize := 1400
+		contentLength, _ := strconv.Atoi(req.Header.Get("Content-Length"))
+		if contentLength < minSize {
+			// если размер меньше minSize байт, сжатие не используем
+			next.ServeHTTP(res, req)
+			return
+		}
 
 		// создаём gzip.Writer поверх текущего res
 		gzip, err := gzip.NewWriterLevel(res, gzip.BestSpeed)
@@ -223,6 +249,7 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 		shortID := generateShortID()
 
 		con.st.UpdateData(shortID, originalURL)
+		con.SaveToURLstorage(shortID, originalURL)
 
 		res.WriteHeader(http.StatusCreated)
 		_, err := res.Write([]byte(con.conf.BaseURL + "/" + shortID))
@@ -239,6 +266,7 @@ func (con *Controller) APIShortenURL() http.HandlerFunc {
 		shortID := generateShortID()
 
 		con.st.UpdateData(shortID, originalURL)
+		con.SaveToURLstorage(shortID, originalURL)
 
 		var shorturl struct {
 			URL string `json:"result"`

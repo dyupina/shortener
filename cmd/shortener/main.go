@@ -29,6 +29,8 @@ func main() {
 	r.Use(controller.GzipEncodeMiddleware)
 	r.Use(controller.GzipDecodeMiddleware)
 
+	s.RestoreURLstorage(c)
+
 	r.Post("/", controller.ShortenURL())
 	r.Get("/{id}", controller.GetOriginalURL())
 	r.Post("/api/shorten", controller.APIShortenURL())
