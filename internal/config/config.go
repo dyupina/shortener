@@ -25,10 +25,6 @@ func NewConfig() *Config {
 	}
 }
 
-// func (c *Config) GetURLStorageFile() string {
-// 	return c.URLStorageFile
-// }
-
 func Init(c *Config) {
 	if val, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
 		c.Addr = val

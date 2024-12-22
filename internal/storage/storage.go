@@ -19,7 +19,8 @@ type StorageJSON struct {
 }
 
 func (s *Storage) RestoreURLstorage(c *config.Config) {
-	file, err := os.Open(c.URLStorageFile)
+	// file, err := os.Open(c.URLStorageFile)
+	file, err := os.OpenFile(c.URLStorageFile, os.O_RDONLY|os.O_CREATE, 0666) //nolint:mnd // read and write permission for all users
 	if err != nil {
 		fmt.Printf("error open file %s %s\n", c.URLStorageFile, err.Error())
 		return
