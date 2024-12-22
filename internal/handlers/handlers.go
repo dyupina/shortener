@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"compress/gzip"
-	"fmt"
 	"io"
 	"net/http"
 	"regexp"
 	"shortener/internal/config"
-	"strconv"
 	"time"
 
 	"encoding/json"
@@ -83,7 +81,24 @@ func generateShortID() string {
 	return id
 }
 
-func (con *Controller) MiddlewareCompressing(next http.Handler) http.Handler {
+// Middleware для распаковки gzip-запросов
+func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Content-Encoding") == "gzip" {
+			gz, err := gzip.NewReader(req.Body)
+			if err != nil {
+				http.Error(res, "Bad Request: Unable to decode gzip body", http.StatusBadRequest)
+				return
+			}
+			defer gz.Close()
+			req.Body = gz
+		}
+		next.ServeHTTP(res, req)
+	})
+}
+
+// Middleware для сжатия gzip-ответов
+func (con *Controller) GzipEncodeMiddleware(next http.Handler) http.Handler {
 	compressFn := func(res http.ResponseWriter, req *http.Request) {
 		// проверяем, что клиент поддерживает gzip-сжатие
 		if !strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
@@ -100,14 +115,14 @@ func (con *Controller) MiddlewareCompressing(next http.Handler) http.Handler {
 			return
 		}
 
-		// Сжатие маленького тела (до 1400 байт)
-		minSize := 1400
-		contentLength, _ := strconv.Atoi(req.Header.Get("Content-Length"))
-		if contentLength < minSize {
-			// если размер меньше minSize байт, сжатие не используем
-			next.ServeHTTP(res, req)
-			return
-		}
+		// // Сжатие маленького тела (до 1400 байт)
+		// minSize := 1400
+		// contentLength, _ := strconv.Atoi(req.Header.Get("Content-Length"))
+		// if contentLength < minSize {
+		// 	// если размер меньше minSize байт, сжатие не используем
+		// 	next.ServeHTTP(res, req)
+		// 	return
+		// }
 
 		// создаём gzip.Writer поверх текущего res
 		gzip, err := gzip.NewWriterLevel(res, gzip.BestSpeed)
@@ -119,10 +134,10 @@ func (con *Controller) MiddlewareCompressing(next http.Handler) http.Handler {
 		defer gzip.Close()
 
 		res.Header().Set("Content-Encoding", "gzip")
+
 		// передаём обработчику страницы переменную типа gzipWriter для вывода данных
 		next.ServeHTTP(gzipWriter{ResponseWriter: res, Writer: gzip}, req)
 	}
-
 	return http.HandlerFunc(compressFn)
 }
 
@@ -200,11 +215,10 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 			originalURL = extractURLfromJSON(res, req)
 		} else if strings.Contains(req.Header.Get("Content-Type"), "text/html") {
 			originalURL = extractURLfromHTML(res, req)
-		} else { //strings.Contains(req.Header.Get("Content-Type"), "text/plane") {
+		} else { // strings.Contains(req.Header.Get("Content-Type"), "text/plane") {
 			b, _ := io.ReadAll(req.Body)
 			originalURL = string(b)
 		}
-		// fmt.Printf("ShortenURL(): originalURL: %s\n", originalURL)
 
 		shortID := generateShortID()
 
@@ -250,8 +264,6 @@ func (con *Controller) GetOriginalURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		id := strings.TrimPrefix(req.URL.Path, "/")
 		originalURL, err := con.st.GetData(id)
-
-		fmt.Printf("GetOriginalURL(): originalURL: %s\n", originalURL)
 
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)

@@ -26,7 +26,8 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(time.Duration(c.Timeout) * time.Second))
 	r.Use(controller.MiddlewareLogging)
-	r.Use(controller.MiddlewareCompressing)
+	r.Use(controller.GzipEncodeMiddleware)
+	r.Use(controller.GzipDecodeMiddleware)
 
 	r.Post("/", controller.ShortenURL())
 	r.Get("/{id}", controller.GetOriginalURL())
