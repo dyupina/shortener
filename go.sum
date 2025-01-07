@@ -1,2 +1,4 @@
 github.com/9ssi7/nanoid v0.0.1 h1:ejEUVrBN3bDgD/2GkTx5vMUxPl+MvtMVmIrRLBp83Xk=
 github.com/9ssi7/nanoid v0.0.1/go.mod h1:lj3AjDj+ds+8CjiRRL4kXfzIMLDFsn9QSv0F2aQuGu4=
+github.com/google/uuid v1.3.1 h1:KjJaJ9iWZ3jOFZIf1Lqf4laDRCasjl0BCmnEGxkdLb4=
+github.com/google/uuid v1.3.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
