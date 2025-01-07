@@ -1,17 +1,15 @@
 package main
 
 import (
-	"log"
 	"net/http"
-	"time"
 
+	controller "shortener/internal/app"
 	"shortener/internal/config"
 	"shortener/internal/handlers"
-
+	"shortener/internal/logger"
 	"shortener/internal/storage"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
@@ -20,23 +18,27 @@ func main() {
 
 	s := storage.NewURLstorage()
 
-	controller := handlers.NewController(c, s)
-
+	sugarLogger, err := logger.NewLogger()
+	if err != nil {
+		sugarLogger.Fatalf("Failed to initialize logger: %v", err)
+	}
+	ctrl := handlers.NewController(c, s, sugarLogger)
 	r := chi.NewRouter()
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(time.Duration(c.Timeout) * time.Second))
-	r.Use(controller.MiddlewareLogging)
-	r.Use(controller.GzipEncodeMiddleware)
-	r.Use(controller.GzipDecodeMiddleware)
 
 	s.RestoreURLstorage(c)
 
-	r.Post("/", controller.ShortenURL())
-	r.Get("/{id}", controller.GetOriginalURL())
-	r.Post("/api/shorten", controller.APIShortenURL())
-
-	err := http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
+	file, err := storage.OpenFileAsWriter(c)
 	if err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		sugarLogger.Fatalf("Failed to open URLs backup file: %v", err)
+	}
+	defer storage.ReadWriteCloserClose(file)
+	s.AutoSave(file, c)
+
+	controller.InitMiddleware(r, c, ctrl)
+	controller.Routing(r, ctrl)
+
+	err = http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
+	if err != nil {
+		sugarLogger.Fatalf("Failed to start server: %v", err)
 	}
 }

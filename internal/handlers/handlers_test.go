@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"shortener/internal/config"
+	"shortener/internal/logger"
 	"shortener/internal/storage"
 
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,8 @@ func TestAPIShortenURL(t *testing.T) {
 
 	c := config.NewConfig()
 	s := storage.NewURLstorage()
-	controller := NewController(c, s)
+	sugarLogger, _ := logger.NewLogger()
+	controller := NewController(c, s, sugarLogger)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
@@ -38,8 +40,8 @@ func TestAPIShortenURL(t *testing.T) {
 			handler.ServeHTTP(w, r)
 
 			res := w.Result()
-			// проверяем код ответа
-			require.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
+
+			require.Equal(t, tc.expectedCode, res.StatusCode, "Response code does not match expected")
 			defer res.Body.Close()
 		})
 	}
@@ -57,7 +59,8 @@ func TestShortenURL(t *testing.T) {
 
 	c := config.NewConfig()
 	s := storage.NewURLstorage()
-	controller := NewController(c, s)
+	sugarLogger, _ := logger.NewLogger()
+	controller := NewController(c, s, sugarLogger)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
@@ -68,8 +71,8 @@ func TestShortenURL(t *testing.T) {
 			handler.ServeHTTP(w, r)
 
 			res := w.Result()
-			// проверяем код ответа
-			require.Equal(t, tc.expectedCode, res.StatusCode, "Код ответа не совпадает с ожидаемым")
+
+			require.Equal(t, tc.expectedCode, res.StatusCode, "Response code does not match expected")
 			defer res.Body.Close()
 		})
 	}
@@ -82,17 +85,17 @@ func TestGetOriginalURL(t *testing.T) {
 		contentType  string
 		expectedCode int
 	}{
-		{method: http.MethodGet, orig: "https://example_1.com", contentType: "text/plane", expectedCode: http.StatusTemporaryRedirect},
-		{method: http.MethodGet, orig: "https://example_2.com", contentType: "text/plane", expectedCode: http.StatusTemporaryRedirect},
+		{method: http.MethodGet, orig: "https://example_1.com", contentType: "text/plain", expectedCode: http.StatusTemporaryRedirect},
+		{method: http.MethodGet, orig: "https://example_2.com", contentType: "text/plain", expectedCode: http.StatusTemporaryRedirect},
 	}
 
 	c := config.NewConfig()
 	s := storage.NewURLstorage()
-	controller := NewController(c, s)
+	sugarLogger, _ := logger.NewLogger()
+	controller := NewController(c, s, sugarLogger)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
-			// Отправить запрос на сокращение ссылки tc.orig
 			r := httptest.NewRequest("POST", c.BaseURL, bytes.NewBufferString(tc.orig))
 			r.Header.Set("Content-Type", tc.contentType)
 			w := httptest.NewRecorder()
@@ -102,10 +105,8 @@ func TestGetOriginalURL(t *testing.T) {
 			res1 := w.Result()
 			defer res1.Body.Close()
 
-			// Получить сокращённую ссылку из ответа
 			shortURLfromServer, _ := io.ReadAll(res1.Body)
 
-			// Отправить GET-запрос для получения исходной ссылки по краткой
 			r2 := httptest.NewRequest(tc.method, string(shortURLfromServer), nil)
 			w2 := httptest.NewRecorder()
 
@@ -117,16 +118,13 @@ func TestGetOriginalURL(t *testing.T) {
 
 			respGetBody, _ := io.ReadAll(res2.Body)
 
-			fmt.Printf(">>> respGetBody %s\n", respGetBody)
-
 			re := regexp.MustCompile(`href=['"]([^'"]+)['"]`)
 			match := re.FindStringSubmatch(string(respGetBody))
 
-			require.Greater(t, len(match), 1, "Ответ должен содержать исходную ссылку") // ответ должен содержать href="https://example_1.com"
-			require.Equal(t, tc.orig, match[1], "Ссылки должны совпадать")
+			require.Greater(t, len(match), 1, "The response must contain the original URL")
+			require.Equal(t, tc.orig, match[1], "URLs must match")
 
-			// Проверяем код ответа
-			require.Equal(t, tc.expectedCode, res2.StatusCode, "Код ответа не совпадает с ожидаемым")
+			require.Equal(t, tc.expectedCode, res2.StatusCode, "Response code does not match expected")
 		})
 	}
 }
