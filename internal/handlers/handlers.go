@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
+	"regexp"
 	"shortener/internal/config"
 	"time"
 
@@ -46,12 +48,32 @@ type store interface {
 }
 
 type Controller struct {
-	conf *config.Config
-	st   store
+	conf  *config.Config
+	st    store
+	sugar zap.SugaredLogger
 }
 
 func NewController(conf *config.Config, st store) *Controller {
-	return &Controller{conf: conf, st: st}
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic("cannot initialize zap")
+	}
+
+	return &Controller{
+		conf:  conf,
+		st:    st,
+		sugar: *logger.Sugar(), // регистратор SugaredLogger
+	}
+}
+
+type gzipWriter struct {
+	http.ResponseWriter
+	Writer io.Writer
+}
+
+func (w gzipWriter) Write(b []byte) (int, error) {
+	// w.Writer будет отвечать за gzip-сжатие, поэтому пишем в него
+	return w.Writer.Write(b)
 }
 
 func generateShortID() string {
@@ -59,14 +81,75 @@ func generateShortID() string {
 	return id
 }
 
-func WithLogging(sugar zap.SugaredLogger, h http.Handler) http.HandlerFunc {
+// Middleware для распаковки gzip-запросов
+func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Content-Encoding") == "gzip" {
+			gz, err := gzip.NewReader(req.Body)
+			if err != nil {
+				http.Error(res, "Bad Request: Unable to decode gzip body", http.StatusBadRequest)
+				return
+			}
+			defer gz.Close()
+			req.Body = gz
+		}
+		next.ServeHTTP(res, req)
+	})
+}
+
+// Middleware для сжатия gzip-ответов
+func (con *Controller) GzipEncodeMiddleware(next http.Handler) http.Handler {
+	compressFn := func(res http.ResponseWriter, req *http.Request) {
+		// проверяем, что клиент поддерживает gzip-сжатие
+		if !strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+			// если gzip не используется, передаём управление дальше без изменений
+			next.ServeHTTP(res, req)
+			return
+		}
+
+		// Функция сжатия должна работать для контента с типами application/json и text/html
+		if !strings.Contains(req.Header.Get("Content-Type"), "application/json") &&
+			!strings.Contains(req.Header.Get("Content-Type"), "text/html") {
+			// если типы не такие, сжатие не используем
+			next.ServeHTTP(res, req)
+			return
+		}
+
+		// // Сжатие маленького тела (до 1400 байт)
+		// minSize := 1400
+		// contentLength, _ := strconv.Atoi(req.Header.Get("Content-Length"))
+		// if contentLength < minSize {
+		// 	// если размер меньше minSize байт, сжатие не используем
+		// 	next.ServeHTTP(res, req)
+		// 	return
+		// }
+
+		// создаём gzip.Writer поверх текущего res
+		gzip, err := gzip.NewWriterLevel(res, gzip.BestSpeed)
+		if err != nil {
+			http.Error(res, "Error creating gzip.Writer", http.StatusBadRequest)
+			return
+		}
+
+		defer gzip.Close()
+
+		res.Header().Set("Content-Encoding", "gzip")
+
+		// передаём обработчику страницы переменную типа gzipWriter для вывода данных
+		next.ServeHTTP(gzipWriter{ResponseWriter: res, Writer: gzip}, req)
+	}
+	return http.HandlerFunc(compressFn)
+}
+
+func (con *Controller) MiddlewareLogging(next http.Handler) http.Handler {
 	logFn := func(res http.ResponseWriter, req *http.Request) {
+		sugar := con.sugar
 		start := time.Now()
 		uri := req.RequestURI // эндпоинт
 		method := req.Method  // метод запроса
 
 		if method == http.MethodGet {
-			h.ServeHTTP(res, req)         // обслуживание оригинального запроса
+			next.ServeHTTP(res, req)      // обслуживание оригинального запроса
 			duration := time.Since(start) // время выполнения запроса
 			// отправляем сведения о запросе в zap
 			sugar.Infoln(
@@ -85,7 +168,7 @@ func WithLogging(sugar zap.SugaredLogger, h http.Handler) http.HandlerFunc {
 				ResponseWriter: res, // встраиваем оригинальный http.ResponseWriter
 				responseData:   responseData,
 			}
-			h.ServeHTTP(&lw, req) // внедряем реализацию http.ResponseWriter
+			next.ServeHTTP(&lw, req) // внедряем реализацию http.ResponseWriter
 			sugar.Infoln(
 				"status", responseData.status, // получаем перехваченный код статуса ответа
 				"size", responseData.size, // получаем перехваченный размер ответа
@@ -97,10 +180,46 @@ func WithLogging(sugar zap.SugaredLogger, h http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(logFn)
 }
 
+func extractURLfromHTML(res http.ResponseWriter, req *http.Request) string {
+	b, _ := io.ReadAll(req.Body)
+	body := string(b)
+
+	// Регулярное выражение для извлечения URL из href
+	re := regexp.MustCompile(`href=['"]([^'"]+)['"]`)
+	matches := re.FindStringSubmatch(body)
+
+	if len(matches) > 1 {
+		return matches[1]
+	} else {
+		http.Error(res, "Bad Request", http.StatusBadRequest)
+		return ""
+	}
+}
+
+func extractURLfromJSON(res http.ResponseWriter, req *http.Request) string {
+	var origurl struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&origurl); err != nil {
+		http.Error(res, "Bad Request", http.StatusBadRequest)
+		return ""
+	}
+	return origurl.URL
+}
+
 func (con *Controller) ShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		body, _ := io.ReadAll(req.Body)
-		originalURL := string(body)
+		var originalURL string
+
+		if strings.Contains(req.Header.Get("Content-Type"), "application/json") {
+			originalURL = extractURLfromJSON(res, req)
+		} else if strings.Contains(req.Header.Get("Content-Type"), "text/html") {
+			originalURL = extractURLfromHTML(res, req)
+		} else { // strings.Contains(req.Header.Get("Content-Type"), "text/plane") {
+			b, _ := io.ReadAll(req.Body)
+			originalURL = string(b)
+		}
+
 		shortID := generateShortID()
 
 		con.st.UpdateData(shortID, originalURL)
@@ -116,14 +235,7 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 
 func (con *Controller) APIShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		var origurl struct {
-			URL string `json:"url"`
-		}
-		if err := json.NewDecoder(req.Body).Decode(&origurl); err != nil {
-			http.Error(res, "Bad Request", http.StatusBadRequest)
-			return
-		}
-		originalURL := origurl.URL
+		originalURL := extractURLfromJSON(res, req)
 		shortID := generateShortID()
 
 		con.st.UpdateData(shortID, originalURL)

@@ -3,28 +3,19 @@ package config
 import (
 	"flag"
 	"os"
-
-	"go.uber.org/zap"
 )
 
 type Config struct {
 	Addr    string
 	BaseURL string
 	Timeout int
-	Sugar   zap.SugaredLogger
 }
 
 func NewConfig() *Config {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		panic("cannot initialize zap")
-	}
-
 	return &Config{
 		Addr:    "localhost:8080",
 		BaseURL: "http://localhost:8080",
 		Timeout: 15,
-		Sugar:   *logger.Sugar(), // регистратор SugaredLogger
 	}
 }
 

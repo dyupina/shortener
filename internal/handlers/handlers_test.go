@@ -43,7 +43,6 @@ func TestAPIShortenURL(t *testing.T) {
 			defer res.Body.Close()
 		})
 	}
-
 }
 
 func TestShortenURL(t *testing.T) {
@@ -80,10 +79,11 @@ func TestGetOriginalURL(t *testing.T) {
 	testCases := []struct {
 		method       string
 		orig         string
+		contentType  string
 		expectedCode int
 	}{
-		{method: http.MethodGet, orig: "https://example_1.com", expectedCode: http.StatusTemporaryRedirect},
-		{method: http.MethodGet, orig: "https://example_2.com", expectedCode: http.StatusTemporaryRedirect},
+		{method: http.MethodGet, orig: "https://example_1.com", contentType: "text/plane", expectedCode: http.StatusTemporaryRedirect},
+		{method: http.MethodGet, orig: "https://example_2.com", contentType: "text/plane", expectedCode: http.StatusTemporaryRedirect},
 	}
 
 	c := config.NewConfig()
@@ -94,6 +94,7 @@ func TestGetOriginalURL(t *testing.T) {
 		t.Run(tc.method, func(t *testing.T) {
 			// Отправить запрос на сокращение ссылки tc.orig
 			r := httptest.NewRequest("POST", c.BaseURL, bytes.NewBufferString(tc.orig))
+			r.Header.Set("Content-Type", tc.contentType)
 			w := httptest.NewRecorder()
 
 			handler := controller.ShortenURL()
@@ -116,7 +117,9 @@ func TestGetOriginalURL(t *testing.T) {
 
 			respGetBody, _ := io.ReadAll(res2.Body)
 
-			re := regexp.MustCompile(`href="([^"]*)"`)
+			fmt.Printf(">>> respGetBody %s\n", respGetBody)
+
+			re := regexp.MustCompile(`href=['"]([^'"]+)['"]`)
 			match := re.FindStringSubmatch(string(respGetBody))
 
 			require.Greater(t, len(match), 1, "Ответ должен содержать исходную ссылку") // ответ должен содержать href="https://example_1.com"
