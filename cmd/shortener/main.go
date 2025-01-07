@@ -29,9 +29,9 @@ func main() {
 
 	file, err := storage.OpenFileAsWriter(c)
 	if err != nil {
-		return
+		sugarLogger.Fatalf("Failed to open URLs backup file: %v", err)
 	}
-	defer storage.CloseWriter(file)
+	defer storage.ReadWriteCloserClose(file)
 	s.AutoSave(file, c)
 
 	controller.InitMiddleware(r, c, ctrl)

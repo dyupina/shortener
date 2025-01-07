@@ -20,7 +20,7 @@ type Storage struct {
 	Events     chan map[string]string
 }
 
-func OpenFileAsReader(c *config.Config) (io.Reader, error) {
+func OpenFileAsReader(c *config.Config) (io.ReadWriteCloser, error) {
 	file, err := os.OpenFile(c.URLStorageFile, os.O_RDONLY|os.O_CREATE, 0666) //nolint:mnd // read and write permission for all users
 	if err != nil {
 		return nil, fmt.Errorf("error open file %s %s", c.URLStorageFile, err.Error())
@@ -28,7 +28,7 @@ func OpenFileAsReader(c *config.Config) (io.Reader, error) {
 	return file, nil
 }
 
-func OpenFileAsWriter(c *config.Config) (io.Writer, error) {
+func OpenFileAsWriter(c *config.Config) (io.ReadWriteCloser, error) {
 	file, err := os.OpenFile(c.URLStorageFile, os.O_WRONLY|os.O_APPEND, 0666) //nolint:mnd // read and write permission for all users
 	if err != nil {
 		return nil, fmt.Errorf("error open file %s %s", c.URLStorageFile, err.Error())
@@ -36,16 +36,20 @@ func OpenFileAsWriter(c *config.Config) (io.Writer, error) {
 	return file, nil
 }
 
-func CloseReader(reader io.Reader) {
-	if closer, ok := reader.(io.Closer); ok {
-		_ = closer.Close()
-	}
-}
+// func CloseReader(reader io.Reader) {
+// 	if closer, ok := reader.(io.Closer); ok {
+// 		_ = closer.Close()
+// 	}
+// }
 
-func CloseWriter(writer io.Writer) {
-	if closer, ok := writer.(io.Closer); ok {
-		_ = closer.Close()
-	}
+// func CloseWriter(writer io.Writer) {
+// 	if closer, ok := writer.(io.Closer); ok {
+// 		_ = closer.Close()
+// 	}
+// }
+
+func ReadWriteCloserClose(rwc io.ReadWriteCloser) {
+	_ = rwc.Close()
 }
 
 func (s *Storage) RestoreURLstorage(c *config.Config) {
@@ -53,14 +57,14 @@ func (s *Storage) RestoreURLstorage(c *config.Config) {
 	if err != nil {
 		return
 	}
-	defer CloseReader(file)
+	defer ReadWriteCloserClose(file)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigs
 		fmt.Printf("Shutting down server and closing file...")
-		CloseReader(file)
+		ReadWriteCloserClose(file)
 		os.Exit(0)
 	}()
 
