@@ -36,18 +36,6 @@ func OpenFileAsWriter(c *config.Config) (io.ReadWriteCloser, error) {
 	return file, nil
 }
 
-// func CloseReader(reader io.Reader) {
-// 	if closer, ok := reader.(io.Closer); ok {
-// 		_ = closer.Close()
-// 	}
-// }
-
-// func CloseWriter(writer io.Writer) {
-// 	if closer, ok := writer.(io.Closer); ok {
-// 		_ = closer.Close()
-// 	}
-// }
-
 func ReadWriteCloserClose(rwc io.ReadWriteCloser) {
 	_ = rwc.Close()
 }
