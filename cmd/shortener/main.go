@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"net/http"
 
 	controller "shortener/internal/app"
@@ -28,7 +27,7 @@ func main() {
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer dbConn.Close(context.Background())
+	defer dbConn.Close()
 
 	ctrl := handlers.NewController(c, s, sugarLogger, dbConn)
 	r := chi.NewRouter()
