@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"regexp"
 	"testing"
 
+	// controller "shortener/internal/app"
 	"shortener/internal/config"
 	"shortener/internal/logger"
 	"shortener/internal/storage"
@@ -29,7 +31,13 @@ func TestAPIShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := storage.NewURLstorage()
 	sugarLogger, _ := logger.NewLogger()
-	controller := NewController(c, s, sugarLogger)
+	dbConn, err := storage.InitializeDB(c)
+	if err != nil {
+		sugarLogger.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer dbConn.Close(context.Background())
+
+	controller := NewController(c, s, sugarLogger, dbConn)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
@@ -60,7 +68,13 @@ func TestShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := storage.NewURLstorage()
 	sugarLogger, _ := logger.NewLogger()
-	controller := NewController(c, s, sugarLogger)
+	dbConn, err := storage.InitializeDB(c)
+	if err != nil {
+		sugarLogger.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer dbConn.Close(context.Background())
+
+	controller := NewController(c, s, sugarLogger, dbConn)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
@@ -92,7 +106,13 @@ func TestGetOriginalURL(t *testing.T) {
 	c := config.NewConfig()
 	s := storage.NewURLstorage()
 	sugarLogger, _ := logger.NewLogger()
-	controller := NewController(c, s, sugarLogger)
+	dbConn, err := storage.InitializeDB(c)
+	if err != nil {
+		sugarLogger.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer dbConn.Close(context.Background())
+
+	controller := NewController(c, s, sugarLogger, dbConn)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {

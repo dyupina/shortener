@@ -23,4 +23,5 @@ func Routing(r *chi.Mux, ctrl *handlers.Controller) {
 	r.Post("/", ctrl.ShortenURL())
 	r.Get("/{id}", ctrl.GetOriginalURL())
 	r.Post("/api/shorten", ctrl.APIShortenURL())
+	r.Get("/ping", ctrl.PingHandler())
 }

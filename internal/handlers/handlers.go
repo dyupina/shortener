@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"compress/gzip"
+	"context"
 	"io"
 	"net/http"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/9ssi7/nanoid"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
@@ -49,20 +51,22 @@ type store interface {
 }
 
 type Controller struct {
-	conf  *config.Config
-	st    store
-	sugar *zap.SugaredLogger
+	conf   *config.Config
+	st     store
+	sugar  *zap.SugaredLogger
+	DBConn *pgx.Conn
 }
 
 func (con *Controller) GetLogger() *zap.SugaredLogger {
 	return con.sugar
 }
 
-func NewController(conf *config.Config, st store, logger *zap.SugaredLogger) *Controller {
+func NewController(conf *config.Config, st store, logger *zap.SugaredLogger, conn *pgx.Conn) *Controller {
 	return &Controller{
-		conf:  conf,
-		st:    st,
-		sugar: logger,
+		conf:   conf,
+		st:     st,
+		sugar:  logger,
+		DBConn: conn,
 	}
 }
 
@@ -264,5 +268,19 @@ func (con *Controller) GetOriginalURL() http.HandlerFunc {
 		}
 
 		http.Redirect(res, req, originalURL, http.StatusTemporaryRedirect)
+	}
+}
+
+func (con *Controller) PingHandler() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		err := con.DBConn.Ping(context.Background())
+		if err != nil {
+			con.sugar.Errorf("Database connection error: %v", err)
+			http.Error(res, "Database connection error", http.StatusInternalServerError)
+			return
+		}
+
+		res.WriteHeader(http.StatusOK)
+		con.sugar.Info("connected to the database successfully")
 	}
 }

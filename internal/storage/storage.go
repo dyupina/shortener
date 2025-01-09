@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,8 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type Storage struct {
@@ -141,4 +144,18 @@ func (s *Storage) UpdateData(shortID, originalURL string) {
 
 func (s *Storage) Len() int {
 	return len(s.URLStorage)
+}
+
+func InitializeDB(conf *config.Config) (*pgx.Conn, error) {
+	dbConn, err := pgx.Connect(context.Background(), conf.DBConnection)
+	if err != nil {
+		return nil, fmt.Errorf("unable to connect to the database: %v", err)
+	}
+
+	err = dbConn.Ping(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("unable to ping the database: %v", err)
+	}
+
+	return dbConn, nil
 }
