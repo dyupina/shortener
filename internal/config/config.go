@@ -23,7 +23,7 @@ func NewConfig() *Config {
 		BaseURL:        "http://localhost:8080",
 		Timeout:        15,
 		URLStorageFile: path,
-		DBConnection:   "postgresql://shortener_db:shortener_db@localhost:5432/shortener_db?sslmode=disable",
+		DBConnection:   "postgresql://shortener_db:shortener_db@localhost/shortener_db?sslmode=disable",
 	}
 }
 
