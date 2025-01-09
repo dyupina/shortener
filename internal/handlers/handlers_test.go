@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,11 +30,11 @@ func TestAPIShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := storage.NewURLstorage()
 	sugarLogger, _ := logger.NewLogger()
-	dbConn, err := storage.InitializeDB(c)
+	dbConn, err := storage.InitDB(c)
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer dbConn.Close(context.Background())
+	defer dbConn.Close()
 
 	controller := NewController(c, s, sugarLogger, dbConn)
 
@@ -68,11 +67,11 @@ func TestShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := storage.NewURLstorage()
 	sugarLogger, _ := logger.NewLogger()
-	dbConn, err := storage.InitializeDB(c)
+	dbConn, err := storage.InitDB(c)
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer dbConn.Close(context.Background())
+	defer dbConn.Close()
 
 	controller := NewController(c, s, sugarLogger, dbConn)
 
@@ -106,11 +105,11 @@ func TestGetOriginalURL(t *testing.T) {
 	c := config.NewConfig()
 	s := storage.NewURLstorage()
 	sugarLogger, _ := logger.NewLogger()
-	dbConn, err := storage.InitializeDB(c)
+	dbConn, err := storage.InitDB(c)
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer dbConn.Close(context.Background())
+	defer dbConn.Close()
 
 	controller := NewController(c, s, sugarLogger, dbConn)
 

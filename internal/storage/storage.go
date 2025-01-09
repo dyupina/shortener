@@ -146,7 +146,7 @@ func (s *Storage) Len() int {
 	return len(s.URLStorage)
 }
 
-func InitializeDB(conf *config.Config) (*sql.DB, error) {
+func InitDB(conf *config.Config) (*sql.DB, error) {
 	// dbConn, err := pgx.Connect(context.Background(), conf.DBConnection)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("unable to connect to the database: %v", err)

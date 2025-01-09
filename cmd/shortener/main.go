@@ -23,7 +23,7 @@ func main() {
 		sugarLogger.Fatalf("Failed to initialize logger: %v", err)
 	}
 
-	dbConn, err := storage.InitializeDB(c)
+	dbConn, err := storage.InitDB(c)
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize database: %v", err)
 	}
