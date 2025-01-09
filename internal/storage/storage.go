@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bufio"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -159,7 +161,13 @@ func InitDB(conf *config.Config) (*sql.DB, error) {
 
 	dbConn, err := sql.Open("pgx", conf.DBConnection)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("unable open database: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	if err = dbConn.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("error verifying a connection to the database: %v", err)
 	}
 
 	return dbConn, nil
