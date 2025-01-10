@@ -16,30 +16,15 @@ func main() {
 	c := config.NewConfig()
 	config.Init(c)
 
-	s := storage.NewURLstorage()
+	s := storage.SelectStorage(c)
 
 	sugarLogger, err := logger.NewLogger()
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize logger: %v", err)
 	}
 
-	dbConn, err := storage.InitDB(c)
-	if err != nil {
-		sugarLogger.Fatalf("Failed to initialize database: %v", err)
-	}
-	defer dbConn.Close()
-
-	ctrl := handlers.NewController(c, s, sugarLogger, dbConn)
+	ctrl := handlers.NewController(c, s, sugarLogger)
 	r := chi.NewRouter()
-
-	s.RestoreURLstorage(c)
-
-	file, err := storage.OpenFileAsWriter(c)
-	if err != nil {
-		sugarLogger.Fatalf("Failed to open URLs backup file: %v", err)
-	}
-	defer storage.ReadWriteCloserClose(file)
-	s.AutoSave(file, c)
 
 	controller.InitMiddleware(r, c, ctrl)
 	controller.Routing(r, ctrl)

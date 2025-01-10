@@ -3,7 +3,6 @@ package config
 import (
 	"flag"
 	"os"
-	"os/user"
 )
 
 type Config struct {
@@ -15,15 +14,12 @@ type Config struct {
 }
 
 func NewConfig() *Config {
-	usr, _ := user.Current()
-	path := usr.HomeDir + "/shortener_storage"
-
 	return &Config{
 		Addr:           "localhost:8080",
 		BaseURL:        "http://localhost:8080",
 		Timeout:        15,
-		URLStorageFile: path,
-		DBConnection:   "postgresql://shortener_db:shortener_db@localhost/shortener_db?sslmode=disable",
+		URLStorageFile: "",
+		DBConnection:   "",
 	}
 }
 

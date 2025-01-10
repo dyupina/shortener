@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"compress/gzip"
-	"database/sql"
 	"io"
 	"net/http"
 	"regexp"
 	"shortener/internal/config"
+	"shortener/internal/storage"
 	"strconv"
 	"time"
 
@@ -40,32 +40,21 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode
 }
 
-type store interface {
-	UpdateData(shortID, originalURL string)
-	GetData(shortID string) (string, error)
-	Len() int
-	RestoreURLstorage(c *config.Config)
-	AutoSave(file io.Writer, c *config.Config)
-	BackupURLs(c *config.Config, file io.Writer, newMap map[string]string, counter int)
-}
-
 type Controller struct {
-	conf   *config.Config
-	st     store
-	sugar  *zap.SugaredLogger
-	DBConn *sql.DB
+	conf  *config.Config
+	st    storage.Storage
+	sugar *zap.SugaredLogger
 }
 
 func (con *Controller) GetLogger() *zap.SugaredLogger {
 	return con.sugar
 }
 
-func NewController(conf *config.Config, st store, logger *zap.SugaredLogger, conn *sql.DB) *Controller {
+func NewController(conf *config.Config, st storage.Storage, logger *zap.SugaredLogger) *Controller {
 	return &Controller{
-		conf:   conf,
-		st:     st,
-		sugar:  logger,
-		DBConn: conn,
+		conf:  conf,
+		st:    st,
+		sugar: logger,
 	}
 }
 
@@ -272,7 +261,7 @@ func (con *Controller) GetOriginalURL() http.HandlerFunc {
 
 func (con *Controller) PingHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		err := con.DBConn.Ping()
+		err := con.st.Ping()
 		if err != nil {
 			con.sugar.Errorf("Database connection error: %v", err)
 			http.Error(res, "Database connection error", http.StatusInternalServerError)
