@@ -28,12 +28,16 @@ func SelectStorage(c *config.Config) Storage {
 	if c.URLStorageFile != "" {
 		fmt.Printf("try using file\n")
 		s := NewStorageFile(c)
-		err := RestoreURLstorage(c, s)
-		if err != nil {
-			fmt.Printf(" resore error\n")
+		if s != nil {
+			err := RestoreURLstorage(c, s)
+			if err != nil {
+				fmt.Printf(" restore error\n")
+			} else {
+				AutoSave(s)
+				return s
+			}
 		} else {
-			AutoSave(s)
-			return s
+			fmt.Printf(" error using file")
 		}
 	}
 

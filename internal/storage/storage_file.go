@@ -27,6 +27,7 @@ func NewStorageFile(c *config.Config) *StorageFile {
 	file, err := OpenFileAsWriter(c)
 	if err != nil {
 		fmt.Printf("Failed to open URLs backup file: %v", err)
+		return nil
 	}
 
 	return &StorageFile{
@@ -63,6 +64,7 @@ func RestoreURLstorage(c *config.Config, s *StorageFile) error {
 	if err != nil {
 		return err
 	}
+	defer ReadWriteCloserClose(file)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
@@ -102,10 +104,6 @@ func AutoSave(s *StorageFile) {
 func BackupURLs(s *StorageFile, newMap map[string]string, counter int) {
 	shortID := ""
 	originalURL := ""
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	for key, value := range newMap {
 		shortID = key
 		originalURL = value
@@ -123,7 +121,10 @@ func BackupURLs(s *StorageFile, newMap map[string]string, counter int) {
 		}
 		data = append(data, '\n')
 
+		s.mu.Lock()
 		_, err = s.file.Write(data)
+		s.mu.Unlock()
+
 		if err != nil {
 			fmt.Printf("error backup\n")
 		}
@@ -143,7 +144,7 @@ func OpenFileAsReader(c *config.Config) (io.ReadWriteCloser, error) {
 }
 
 func OpenFileAsWriter(c *config.Config) (io.ReadWriteCloser, error) {
-	file, err := os.OpenFile(c.URLStorageFile, os.O_WRONLY|os.O_APPEND, 0666) //nolint:mnd // read and write permission for all users
+	file, err := os.OpenFile(c.URLStorageFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666) //nolint:mnd // same
 	if err != nil {
 		return nil, fmt.Errorf("error open file %s %s", c.URLStorageFile, err.Error())
 	}
