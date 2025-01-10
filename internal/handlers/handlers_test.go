@@ -26,7 +26,6 @@ func TestAPIShortenURL(t *testing.T) {
 		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example123123.com"},
 	}
 	c := config.NewConfig()
-	config.Init(c)
 	s := storage.SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
 	controller := NewController(c, s, sugarLogger)
@@ -58,7 +57,6 @@ func TestShortenURL(t *testing.T) {
 	}
 
 	c := config.NewConfig()
-	config.Init(c)
 	s := storage.SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
 	controller := NewController(c, s, sugarLogger)
@@ -91,7 +89,6 @@ func TestGetOriginalURL(t *testing.T) {
 	}
 
 	c := config.NewConfig()
-	config.Init(c)
 	s := storage.SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
 	controller := NewController(c, s, sugarLogger)
