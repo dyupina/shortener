@@ -63,7 +63,7 @@ func RestoreURLstorage(c *config.Config, s *StorageFile) error {
 	if err != nil {
 		return err
 	}
-	defer ReadWriteCloserClose(file)
+	// defer ReadWriteCloserClose(file)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
@@ -125,7 +125,6 @@ func BackupURLs(s *StorageFile, newMap map[string]string, counter int) {
 		data = append(data, '\n')
 
 		_, err = s.file.Write(data)
-		fmt.Printf("><><><><>< %s %v\n", data, err)
 	}
 }
 
