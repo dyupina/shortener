@@ -2,14 +2,34 @@ package handlers
 
 import (
 	"compress/gzip"
+	"errors"
 	"io"
 	"net/http"
+	"shortener/internal/config"
+	"shortener/internal/service"
+	"shortener/internal/storage"
 	"strconv"
 	"time"
 
 	"encoding/json"
 	"strings"
+
+	"go.uber.org/zap"
 )
+
+type Controller struct {
+	conf  *config.Config
+	st    storage.Storage
+	sugar *zap.SugaredLogger
+}
+
+func NewController(conf *config.Config, st storage.Storage, logger *zap.SugaredLogger) *Controller {
+	return &Controller{
+		conf:  conf,
+		st:    st,
+		sugar: logger,
+	}
+}
 
 func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -124,11 +144,13 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 			originalURL = string(b)
 		}
 
-		shortID := generateShortID()
+		shortID, errUpdateData := con.st.UpdateData(originalURL)
+		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
+			res.WriteHeader(http.StatusConflict)
+		} else {
+			res.WriteHeader(http.StatusCreated)
+		}
 
-		con.st.UpdateData(shortID, originalURL)
-
-		res.WriteHeader(http.StatusCreated)
 		_, err := res.Write([]byte(con.conf.BaseURL + "/" + shortID))
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
@@ -140,20 +162,25 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 func (con *Controller) APIShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		originalURL := extractURLfromJSON(res, req)
-		shortID := generateShortID()
 
-		con.st.UpdateData(shortID, originalURL)
+		shortID, errUpdateData := con.st.UpdateData(originalURL)
 
 		shorturl.URL = con.conf.BaseURL + "/" + shortID
 
-		resp, err := json.Marshal(shorturl)
-		if err != nil {
+		resp, errMarshal := json.Marshal(shorturl)
+		if errMarshal != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
 			return
 		}
 		res.Header().Set("Content-Type", "application/json")
-		res.WriteHeader(http.StatusCreated)
-		_, err = res.Write(resp)
+
+		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
+			res.WriteHeader(http.StatusConflict)
+		} else {
+			res.WriteHeader(http.StatusCreated)
+		}
+
+		_, err := res.Write(resp)
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
 			return
@@ -170,10 +197,10 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 		}
 
 		batchResponse := []batchResponseEntity{}
-
+		var errUpdateData error
 		for _, url := range urls {
-			shortID := generateShortID()
-			con.st.UpdateData(shortID, url.OriginalURL)
+			shortID, err := con.st.UpdateData(url.OriginalURL)
+			errUpdateData = err
 
 			batchResponse = append(batchResponse, batchResponseEntity{
 				CorrelationID: url.CorrelationID,
@@ -186,7 +213,13 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 			return
 		}
 		res.Header().Set("Content-Type", "application/json")
-		res.WriteHeader(http.StatusCreated)
+
+		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
+			res.WriteHeader(http.StatusConflict)
+		} else {
+			res.WriteHeader(http.StatusCreated)
+		}
+
 		_, err = res.Write(resp)
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)

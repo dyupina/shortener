@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"shortener/internal/config"
 	"shortener/internal/domain/models"
+	"shortener/internal/service"
 	"strconv"
 	"sync"
 	"syscall"
@@ -37,15 +38,26 @@ func NewStorageFile(c *config.Config) *StorageFile {
 	}
 }
 
-func (s *StorageFile) UpdateData(shortID, originalURL string) {
+func (s *StorageFile) UpdateData(originalURL string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.urlStorage[shortID] = originalURL
+	shortID := service.GenerateShortID()
+
+	for k, v := range s.urlStorage {
+		if v == originalURL {
+			return k, service.ErrDuplicateURL
+		}
+	}
+
 	newMap := make(map[string]string)
 	newMap[shortID] = originalURL
 
+	s.urlStorage[shortID] = originalURL
+
 	s.Events <- newMap
+
+	return shortID, nil
 }
 
 func (s *StorageFile) GetData(shortID string) (string, error) {
@@ -84,9 +96,15 @@ func RestoreURLstorage(c *config.Config, s *StorageFile) error {
 			fmt.Printf("error Unmarshal %s\n", err.Error())
 			return err
 		}
-		s.UpdateData(urlFileStorage.ShortURL, urlFileStorage.OriginalURL)
+
+		s.urlStorage[urlFileStorage.ShortURL] = urlFileStorage.OriginalURL
+
+		newMap := make(map[string]string)
+		newMap[urlFileStorage.ShortURL] = urlFileStorage.OriginalURL
+		s.Events <- newMap
 	}
 	_ = os.Truncate(c.URLStorageFile, 0)
+
 	return nil
 }
 

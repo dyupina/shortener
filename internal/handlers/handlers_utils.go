@@ -5,11 +5,6 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-	"shortener/internal/config"
-	"shortener/internal/storage"
-
-	"github.com/9ssi7/nanoid"
-	"go.uber.org/zap"
 )
 
 var shorturl struct {
@@ -53,24 +48,6 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode
 }
 
-type Controller struct {
-	conf  *config.Config
-	st    storage.Storage
-	sugar *zap.SugaredLogger
-}
-
-func (con *Controller) GetLogger() *zap.SugaredLogger {
-	return con.sugar
-}
-
-func NewController(conf *config.Config, st storage.Storage, logger *zap.SugaredLogger) *Controller {
-	return &Controller{
-		conf:  conf,
-		st:    st,
-		sugar: logger,
-	}
-}
-
 type gzipWriter struct {
 	http.ResponseWriter
 	Writer io.Writer
@@ -110,9 +87,4 @@ func extractURLsfromJSONBatchRequest(req *http.Request) []batchRequestEntity {
 		return nil
 	}
 	return urls
-}
-
-func generateShortID() string {
-	id, _ := nanoid.New()
-	return id
 }

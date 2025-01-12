@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -16,6 +17,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func SelectStorage(c *config.Config) storage.Storage {
+	if c.DBConnection != "" {
+		log.Printf("try using DB\n")
+		s := storage.NewStorageDB(c.DBConnection)
+		return s
+	}
+
+	if c.URLStorageFile != "" {
+		log.Printf("try using file\n")
+		s := storage.NewStorageFile(c)
+		if s != nil {
+			err := storage.RestoreURLstorage(c, s)
+			if err != nil {
+				log.Printf(" restore error\n")
+			} else {
+				storage.AutoSave(s)
+				return s
+			}
+		} else {
+			log.Printf(" error using file")
+		}
+	}
+
+	log.Printf("using memory\n")
+	s := storage.NewStorageMemory()
+
+	return s
+}
+
 func TestAPIShortenURL(t *testing.T) {
 	testCases := []struct {
 		method       string
@@ -26,7 +56,7 @@ func TestAPIShortenURL(t *testing.T) {
 		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example123123.com"},
 	}
 	c := config.NewConfig()
-	s := storage.SelectStorage(c)
+	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
 	controller := NewController(c, s, sugarLogger)
 
@@ -57,7 +87,7 @@ func TestShortenURL(t *testing.T) {
 	}
 
 	c := config.NewConfig()
-	s := storage.SelectStorage(c)
+	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
 	controller := NewController(c, s, sugarLogger)
 
@@ -89,7 +119,7 @@ func TestGetOriginalURL(t *testing.T) {
 	}
 
 	c := config.NewConfig()
-	s := storage.SelectStorage(c)
+	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
 	controller := NewController(c, s, sugarLogger)
 

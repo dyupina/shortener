@@ -2,69 +2,54 @@ package storage
 
 import (
 	"database/sql"
-	"fmt"
-	"shortener/internal/config"
-	"sync"
+	"embed"
+	"log"
+	"shortener/internal/service"
+
+	"github.com/pressly/goose/v3"
 )
 
 type StorageDB struct {
-	urlStorage map[string]string
-	mu         sync.Mutex
-	dbConn     *sql.DB
+	DBConn *sql.DB
 }
 
-func NewStorageDB(c *config.Config) *StorageDB {
-	dbConn, err := sql.Open("pgx", c.DBConnection)
-	if err != nil {
-		_ = fmt.Errorf("unable open database: %v", err)
-		return nil
+//go:embed db/migrations/*.sql
+var embedMigrations embed.FS
+
+func NewStorageDB(connetion string) *StorageDB {
+	DBConn, _ := sql.Open("pgx", connetion)
+
+	if connetion != "" {
+		goose.SetBaseFS(embedMigrations)
+
+		if err := goose.SetDialect("postgres"); err != nil {
+			log.Printf("error setting SQL dialect\n")
+		}
+
+		if err := goose.Up(DBConn, "db/migrations"); err != nil {
+			log.Printf("error migration %s\n", err.Error())
+		}
 	}
 
 	return &StorageDB{
-		urlStorage: make(map[string]string),
-		dbConn:     dbConn,
+		DBConn: DBConn,
 	}
 }
 
-func (s *StorageDB) UpdateData(shortID, originalURL string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *StorageDB) UpdateData(originalURL string) (string, error) {
+	var shortURL string
+	var retErr error
+	var serv = &service.Serv{}
+	shortURL, retErr = serv.GetShortURLDB(originalURL, s.DBConn)
 
-	tx, err := s.dbConn.Begin()
-	if err != nil {
-		fmt.Printf("Error beginning transaction: %v", err)
-		return
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
-			fmt.Printf("Error transaction rollback: %v\n", err)
-		}
-	}()
-
-	stmt, err := tx.Prepare("INSERT INTO shortener_db (short_url, full_url) VALUES ($1, $2)")
-	if err != nil {
-		fmt.Printf("Error preparing statement: %v\n", err)
-		return
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(shortID, originalURL)
-	if err != nil {
-		fmt.Printf("Error inserting row to DB: %v\n", err)
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		fmt.Printf("Error committing transaction: %v\n", err)
-	}
+	return shortURL, retErr
 }
+
+const selectRow = "SELECT full_url FROM urls WHERE short_url=$1"
 
 func (s *StorageDB) GetData(shortID string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	var originalURL string
-	err := s.dbConn.QueryRow("SELECT full_url FROM shortener_db WHERE short_url=$1", shortID).Scan(&originalURL)
+	err := s.DBConn.QueryRow(selectRow, shortID).Scan(&originalURL)
 	if err != nil {
 		return "", err
 	}
@@ -72,16 +57,5 @@ func (s *StorageDB) GetData(shortID string) (string, error) {
 }
 
 func (s *StorageDB) Ping() error {
-	return s.dbConn.Ping()
-}
-
-func CreateTable(s *StorageDB) error {
-	query := `
-    CREATE TABLE IF NOT EXISTS shortener_db (
-        id SERIAL PRIMARY KEY,
-        short_url TEXT UNIQUE NOT NULL,
-        full_url TEXT NOT NULL
-    );`
-	_, err := s.dbConn.Exec(query)
-	return err
+	return s.DBConn.Ping()
 }
