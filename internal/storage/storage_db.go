@@ -30,12 +30,32 @@ func (s *StorageDB) UpdateData(shortID, originalURL string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	newMap := make(map[string]string)
-	newMap[shortID] = originalURL
-
-	_, err := s.dbConn.Exec("INSERT INTO shortener_db (short_url, full_url) VALUES ($1, $2)", shortID, originalURL)
+	tx, err := s.dbConn.Begin()
 	if err != nil {
-		fmt.Printf("error inserting row to DB\n")
+		fmt.Printf("Error beginning transaction: %v", err)
+		return
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			fmt.Printf("Error transaction rollback: %v\n", err)
+		}
+	}()
+
+	stmt, err := tx.Prepare("INSERT INTO shortener_db (short_url, full_url) VALUES ($1, $2)")
+	if err != nil {
+		fmt.Printf("Error preparing statement: %v\n", err)
+		return
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(shortID, originalURL)
+	if err != nil {
+		fmt.Printf("Error inserting row to DB: %v\n", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		fmt.Printf("Error committing transaction: %v\n", err)
 	}
 }
 

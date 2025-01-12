@@ -4,73 +4,12 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
-	"regexp"
-	"shortener/internal/config"
-	"shortener/internal/storage"
 	"strconv"
 	"time"
 
 	"encoding/json"
 	"strings"
-
-	"github.com/9ssi7/nanoid"
-	"go.uber.org/zap"
 )
-
-type (
-	responseData struct {
-		status int
-		size   int
-	}
-
-	loggingResponseWriter struct {
-		http.ResponseWriter
-		responseData *responseData
-	}
-)
-
-func (r *loggingResponseWriter) Write(b []byte) (int, error) {
-	size, err := r.ResponseWriter.Write(b)
-	r.responseData.size += size
-	return size, err
-}
-
-func (r *loggingResponseWriter) WriteHeader(statusCode int) {
-	r.ResponseWriter.WriteHeader(statusCode)
-	r.responseData.status = statusCode
-}
-
-type Controller struct {
-	conf  *config.Config
-	st    storage.Storage
-	sugar *zap.SugaredLogger
-}
-
-func (con *Controller) GetLogger() *zap.SugaredLogger {
-	return con.sugar
-}
-
-func NewController(conf *config.Config, st storage.Storage, logger *zap.SugaredLogger) *Controller {
-	return &Controller{
-		conf:  conf,
-		st:    st,
-		sugar: logger,
-	}
-}
-
-type gzipWriter struct {
-	http.ResponseWriter
-	Writer io.Writer
-}
-
-func (w gzipWriter) Write(b []byte) (int, error) {
-	return w.Writer.Write(b)
-}
-
-func generateShortID() string {
-	id, _ := nanoid.New()
-	return id
-}
 
 func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -172,29 +111,6 @@ func (con *Controller) PanicRecoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func extractURLfromHTML(res http.ResponseWriter, req *http.Request) string {
-	b, _ := io.ReadAll(req.Body)
-	body := string(b)
-
-	re := regexp.MustCompile(`href=['"]([^'"]+)['"]`)
-	matches := re.FindStringSubmatch(body)
-
-	if len(matches) > 1 {
-		return matches[1]
-	} else {
-		http.Error(res, "Bad Request", http.StatusBadRequest)
-		return ""
-	}
-}
-
-func extractURLfromJSON(res http.ResponseWriter, req *http.Request) string {
-	if err := json.NewDecoder(req.Body).Decode(&origurl); err != nil {
-		http.Error(res, "Bad Request", http.StatusBadRequest)
-		return ""
-	}
-	return origurl.URL
-}
-
 func (con *Controller) ShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		var originalURL string
@@ -231,6 +147,40 @@ func (con *Controller) APIShortenURL() http.HandlerFunc {
 		shorturl.URL = con.conf.BaseURL + "/" + shortID
 
 		resp, err := json.Marshal(shorturl)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusCreated)
+		_, err = res.Write(resp)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+	}
+}
+
+func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		urls := extractURLsfromJSONBatchRequest(req)
+		if urls == nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		batchResponse := []batchResponseEntity{}
+
+		for _, url := range urls {
+			shortID := generateShortID()
+			con.st.UpdateData(shortID, url.OriginalURL)
+
+			batchResponse = append(batchResponse, batchResponseEntity{
+				CorrelationID: url.CorrelationID,
+				ShortURL:      con.conf.BaseURL + "/" + shortID})
+		}
+
+		resp, err := json.Marshal(batchResponse)
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
 			return
