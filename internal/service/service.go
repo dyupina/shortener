@@ -27,7 +27,7 @@ func (s *Serv) GetShortURLDB(originalURL string, db *sql.DB) (string, error) {
 	shortID := GenerateShortID()
 
 	row := db.QueryRow(insertRow, shortID, originalURL)
-	row.Scan(&shortURL)
+	_ = row.Scan(&shortURL)
 	retErr = nil
 
 	if shortURL == "" {

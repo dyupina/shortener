@@ -13,6 +13,7 @@ import (
 	"shortener/internal/config"
 	"shortener/internal/logger"
 	"shortener/internal/storage"
+	"shortener/internal/user"
 
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +59,7 @@ func TestAPIShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	controller := NewController(c, s, sugarLogger)
+	controller := NewController(c, s, sugarLogger, user.NewUser())
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
@@ -89,7 +90,7 @@ func TestShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	controller := NewController(c, s, sugarLogger)
+	controller := NewController(c, s, sugarLogger, user.NewUser())
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
@@ -121,7 +122,7 @@ func TestGetOriginalURL(t *testing.T) {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	controller := NewController(c, s, sugarLogger)
+	controller := NewController(c, s, sugarLogger, user.NewUser())
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
