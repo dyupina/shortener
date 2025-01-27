@@ -2,82 +2,33 @@ package handlers
 
 import (
 	"compress/gzip"
+	"errors"
 	"io"
 	"net/http"
-	"regexp"
 	"shortener/internal/config"
+	"shortener/internal/service"
+	"shortener/internal/storage"
 	"strconv"
 	"time"
 
 	"encoding/json"
 	"strings"
 
-	"github.com/9ssi7/nanoid"
 	"go.uber.org/zap"
 )
 
-type (
-	responseData struct {
-		status int
-		size   int
-	}
-
-	loggingResponseWriter struct {
-		http.ResponseWriter
-		responseData *responseData
-	}
-)
-
-func (r *loggingResponseWriter) Write(b []byte) (int, error) {
-	size, err := r.ResponseWriter.Write(b)
-	r.responseData.size += size
-	return size, err
-}
-
-func (r *loggingResponseWriter) WriteHeader(statusCode int) {
-	r.ResponseWriter.WriteHeader(statusCode)
-	r.responseData.status = statusCode
-}
-
-type store interface {
-	UpdateData(shortID, originalURL string)
-	GetData(shortID string) (string, error)
-	Len() int
-	RestoreURLstorage(c *config.Config)
-	AutoSave(file io.Writer, c *config.Config)
-	BackupURLs(c *config.Config, file io.Writer, newMap map[string]string, counter int)
-}
-
 type Controller struct {
 	conf  *config.Config
-	st    store
+	st    storage.Storage
 	sugar *zap.SugaredLogger
 }
 
-func (con *Controller) GetLogger() *zap.SugaredLogger {
-	return con.sugar
-}
-
-func NewController(conf *config.Config, st store, logger *zap.SugaredLogger) *Controller {
+func NewController(conf *config.Config, st storage.Storage, logger *zap.SugaredLogger) *Controller {
 	return &Controller{
 		conf:  conf,
 		st:    st,
 		sugar: logger,
 	}
-}
-
-type gzipWriter struct {
-	http.ResponseWriter
-	Writer io.Writer
-}
-
-func (w gzipWriter) Write(b []byte) (int, error) {
-	return w.Writer.Write(b)
-}
-
-func generateShortID() string {
-	id, _ := nanoid.New()
-	return id
 }
 
 func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
@@ -180,29 +131,6 @@ func (con *Controller) PanicRecoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func extractURLfromHTML(res http.ResponseWriter, req *http.Request) string {
-	b, _ := io.ReadAll(req.Body)
-	body := string(b)
-
-	re := regexp.MustCompile(`href=['"]([^'"]+)['"]`)
-	matches := re.FindStringSubmatch(body)
-
-	if len(matches) > 1 {
-		return matches[1]
-	} else {
-		http.Error(res, "Bad Request", http.StatusBadRequest)
-		return ""
-	}
-}
-
-func extractURLfromJSON(res http.ResponseWriter, req *http.Request) string {
-	if err := json.NewDecoder(req.Body).Decode(&origurl); err != nil {
-		http.Error(res, "Bad Request", http.StatusBadRequest)
-		return ""
-	}
-	return origurl.URL
-}
-
 func (con *Controller) ShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		var originalURL string
@@ -216,11 +144,13 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 			originalURL = string(b)
 		}
 
-		shortID := generateShortID()
+		shortID, errUpdateData := con.st.UpdateData(originalURL)
+		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
+			res.WriteHeader(http.StatusConflict)
+		} else {
+			res.WriteHeader(http.StatusCreated)
+		}
 
-		con.st.UpdateData(shortID, originalURL)
-
-		res.WriteHeader(http.StatusCreated)
 		_, err := res.Write([]byte(con.conf.BaseURL + "/" + shortID))
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
@@ -232,19 +162,64 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 func (con *Controller) APIShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		originalURL := extractURLfromJSON(res, req)
-		shortID := generateShortID()
 
-		con.st.UpdateData(shortID, originalURL)
+		shortID, errUpdateData := con.st.UpdateData(originalURL)
 
 		shorturl.URL = con.conf.BaseURL + "/" + shortID
 
-		resp, err := json.Marshal(shorturl)
+		resp, errMarshal := json.Marshal(shorturl)
+		if errMarshal != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+		res.Header().Set("Content-Type", "application/json")
+
+		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
+			res.WriteHeader(http.StatusConflict)
+		} else {
+			res.WriteHeader(http.StatusCreated)
+		}
+
+		_, err := res.Write(resp)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+	}
+}
+
+func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		urls := extractURLsfromJSONBatchRequest(req)
+		if urls == nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		batchResponse := []batchResponseEntity{}
+		var errUpdateData error
+		for _, url := range urls {
+			shortID, err := con.st.UpdateData(url.OriginalURL)
+			errUpdateData = err
+
+			batchResponse = append(batchResponse, batchResponseEntity{
+				CorrelationID: url.CorrelationID,
+				ShortURL:      con.conf.BaseURL + "/" + shortID})
+		}
+
+		resp, err := json.Marshal(batchResponse)
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
 			return
 		}
 		res.Header().Set("Content-Type", "application/json")
-		res.WriteHeader(http.StatusCreated)
+
+		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
+			res.WriteHeader(http.StatusConflict)
+		} else {
+			res.WriteHeader(http.StatusCreated)
+		}
+
 		_, err = res.Write(resp)
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
@@ -264,5 +239,19 @@ func (con *Controller) GetOriginalURL() http.HandlerFunc {
 		}
 
 		http.Redirect(res, req, originalURL, http.StatusTemporaryRedirect)
+	}
+}
+
+func (con *Controller) PingHandler() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		err := con.st.Ping()
+		if err != nil {
+			con.sugar.Errorf("Database connection error: %v", err)
+			http.Error(res, "Database connection error", http.StatusInternalServerError)
+			return
+		}
+
+		res.WriteHeader(http.StatusOK)
+		con.sugar.Info("connected to the database successfully")
 	}
 }

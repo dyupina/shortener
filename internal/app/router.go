@@ -1,4 +1,4 @@
-package controller
+package app
 
 import (
 	"time"
@@ -23,4 +23,6 @@ func Routing(r *chi.Mux, ctrl *handlers.Controller) {
 	r.Post("/", ctrl.ShortenURL())
 	r.Get("/{id}", ctrl.GetOriginalURL())
 	r.Post("/api/shorten", ctrl.APIShortenURL())
+	r.Post("/api/shorten/batch", ctrl.APIShortenBatchURL())
+	r.Get("/ping", ctrl.PingHandler())
 }
