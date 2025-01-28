@@ -14,6 +14,7 @@ func InitMiddleware(r *chi.Mux, conf *config.Config, ctrl *handlers.Controller) 
 	r.Use(ctrl.PanicRecoveryMiddleware)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(time.Duration(conf.Timeout) * time.Second))
+	r.Use(ctrl.Authenticate)
 	r.Use(ctrl.LoggingMiddleware)
 	r.Use(ctrl.GzipEncodeMiddleware)
 	r.Use(ctrl.GzipDecodeMiddleware)
@@ -25,4 +26,5 @@ func Routing(r *chi.Mux, ctrl *handlers.Controller) {
 	r.Post("/api/shorten", ctrl.APIShortenURL())
 	r.Post("/api/shorten/batch", ctrl.APIShortenBatchURL())
 	r.Get("/ping", ctrl.PingHandler())
+	r.Get("/api/user/urls", ctrl.APIGetUserURLs())
 }

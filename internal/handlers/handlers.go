@@ -2,18 +2,21 @@ package handlers
 
 import (
 	"compress/gzip"
+	"context"
 	"errors"
 	"io"
 	"net/http"
 	"shortener/internal/config"
 	"shortener/internal/service"
 	"shortener/internal/storage"
+	"shortener/internal/user"
 	"strconv"
 	"time"
 
 	"encoding/json"
 	"strings"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -21,14 +24,76 @@ type Controller struct {
 	conf  *config.Config
 	st    storage.Storage
 	sugar *zap.SugaredLogger
+	user  user.User
 }
 
-func NewController(conf *config.Config, st storage.Storage, logger *zap.SugaredLogger) *Controller {
+type contextKey string
+
+const userIDKey contextKey = "userID"
+
+func NewController(conf *config.Config, st storage.Storage, logger *zap.SugaredLogger, usr user.User) *Controller {
 	return &Controller{
 		conf:  conf,
 		st:    st,
 		sugar: logger,
+		user:  usr,
 	}
+}
+
+func (con *Controller) APIGetUserURLs() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		userID, ok := req.Context().Value(userIDKey).(string)
+		if !ok {
+			return
+		}
+
+		urls, exist := con.user.GetUserURLs(userID)
+		if !exist {
+			res.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if len(urls) == 0 {
+			res.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		response, err := json.Marshal(urls)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		_, err = res.Write(response)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+	}
+}
+
+func (con *Controller) Authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("AuthToken")
+		if err != nil || cookie == nil {
+			con.sugar.Debugf("(Authenticate) Missing or invalid token, generating new session token")
+			userID := uuid.New().String()
+			con.user.SetUserIDCookie(w, userID)
+
+			ctx := context.WithValue(r.Context(), userIDKey, userID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		uid, err := con.user.GetUserIDCookie(r)
+		if err != nil {
+
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			con.sugar.Debugf("(Authenticate) Unauthorized")
+		}
+		ctx := context.WithValue(r.Context(), userIDKey, uid)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
@@ -145,6 +210,10 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 		}
 
 		shortID, errUpdateData := con.st.UpdateData(originalURL)
+
+		userID, _ := req.Context().Value(userIDKey).(string)
+		con.user.AddURLs(con.conf.BaseURL, userID, shortID, originalURL)
+
 		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
 			res.WriteHeader(http.StatusConflict)
 		} else {
@@ -164,6 +233,9 @@ func (con *Controller) APIShortenURL() http.HandlerFunc {
 		originalURL := extractURLfromJSON(res, req)
 
 		shortID, errUpdateData := con.st.UpdateData(originalURL)
+
+		userID, _ := req.Context().Value(userIDKey).(string)
+		con.user.AddURLs(con.conf.BaseURL, userID, shortID, originalURL)
 
 		shorturl.URL = con.conf.BaseURL + "/" + shortID
 
@@ -201,6 +273,11 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 		for _, url := range urls {
 			shortID, err := con.st.UpdateData(url.OriginalURL)
 			errUpdateData = err
+
+			userID, _ := req.Context().Value(userIDKey).(string)
+			if err == nil {
+				con.user.AddURLs(con.conf.BaseURL, userID, shortID, url.OriginalURL)
+			}
 
 			batchResponse = append(batchResponse, batchResponseEntity{
 				CorrelationID: url.CorrelationID,
