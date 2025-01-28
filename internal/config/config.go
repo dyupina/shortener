@@ -11,6 +11,7 @@ type Config struct {
 	Timeout        int
 	URLStorageFile string
 	DBConnection   string
+	NumWorkers     int
 }
 
 func NewConfig() *Config {
@@ -20,6 +21,7 @@ func NewConfig() *Config {
 		Timeout:        15,
 		URLStorageFile: "",
 		DBConnection:   "",
+		NumWorkers:     15,
 	}
 }
 
