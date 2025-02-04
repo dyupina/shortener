@@ -1,11 +1,15 @@
 package storage
 
 import (
+	"net/http"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-type Storage interface {
-	UpdateData(originalURL string) (string, error)
-	GetData(shortID string) (string, error)
+type StorageService interface {
+	UpdateData(req *http.Request, originalURL, userID string) (shortURL string, retErr error)
+	GetData(shortID string) (originalURL string, isDeleted bool, err error)
 	Ping() error
+
+	BatchDeleteURLs(userID string, urlIDs []string) error
 }

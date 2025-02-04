@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sync"
 )
 
 var shorturl struct {
@@ -87,4 +88,80 @@ func extractURLsfromJSONBatchRequest(req *http.Request) []batchRequestEntity {
 		return nil
 	}
 	return urls
+}
+
+func createURLBatchChannel(doneCh chan struct{}, urlsToDeleteArray []string) chan []string {
+	inputCh := make(chan []string)
+	go func() {
+		defer close(inputCh)
+		select {
+		case <-doneCh:
+			return
+		case inputCh <- urlsToDeleteArray:
+		}
+	}()
+	return inputCh
+}
+
+func distributeDeleteTasks(doneCh chan struct{}, inputCh chan []string, numWorkers int, userID string, con *Controller) []chan string {
+	var resultChs []chan string
+	var wg sync.WaitGroup
+
+	for i := 0; i < numWorkers; i++ {
+		resultCh := make(chan string)
+
+		wg.Add(1)
+		go func(ch chan string) {
+			defer wg.Done()
+			defer close(ch)
+			for urlsToDeleteArray := range inputCh {
+				select {
+				case <-doneCh:
+					return
+				default:
+					err := con.storageService.BatchDeleteURLs(userID, urlsToDeleteArray)
+					if err != nil {
+						con.sugar.Errorf(" Error Updating flag to URLs %s\n", err.Error())
+
+						close(doneCh)
+						return
+					}
+
+					for _, d := range urlsToDeleteArray {
+						ch <- d
+					}
+				}
+			}
+		}(resultCh)
+
+		resultChs = append(resultChs, resultCh)
+	}
+
+	go func() {
+		wg.Wait()
+	}()
+
+	return resultChs
+}
+
+func collectDeletionResults(channels ...chan string) chan string {
+	finalCh := make(chan string)
+	var wg sync.WaitGroup
+
+	for _, ch := range channels {
+		wg.Add(1)
+		go func(ch chan string) {
+			defer wg.Done()
+			for v := range ch {
+				finalCh <- v
+			}
+		}(ch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(finalCh)
+	}()
+
+	return finalCh
 }

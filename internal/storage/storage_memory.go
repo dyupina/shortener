@@ -2,7 +2,8 @@ package storage
 
 import (
 	"fmt"
-	"shortener/internal/service"
+	"net/http"
+	"shortener/internal/repository"
 	"sync"
 )
 
@@ -17,36 +18,41 @@ func NewStorageMemory() *StorageMemory {
 	}
 }
 
-func (s *StorageMemory) UpdateData(originalURL string) (string, error) {
+func (s *StorageMemory) UpdateData(req *http.Request, originalURL, userID string) (shortURL string, retErr error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	retErr = nil
 
-	shortID := service.GenerateShortID()
+	shortURL = repository.GenerateShortID()
 
 	for k, v := range s.urlStorage {
 		if v == originalURL {
-			return k, service.ErrDuplicateURL
+			return k, repository.ErrDuplicateURL
 		}
 	}
 
-	s.urlStorage[shortID] = originalURL
+	s.urlStorage[shortURL] = originalURL
 	newMap := make(map[string]string)
-	newMap[shortID] = originalURL
+	newMap[shortURL] = originalURL
 
-	return shortID, nil
+	return shortURL, nil
 }
 
-func (s *StorageMemory) GetData(shortID string) (string, error) {
+func (s *StorageMemory) GetData(shortID string) (originalURL string, isDeleted bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	originalURL, exists := s.urlStorage[shortID]
 	if !exists {
-		return "", fmt.Errorf("shortID not found: %s", shortID)
+		return "", false, fmt.Errorf("shortID not found: %s", shortID)
 	}
-	return originalURL, nil
+	return originalURL, false, nil
 }
 
 func (s *StorageMemory) Ping() error {
+	return nil
+}
+
+func (s *StorageMemory) BatchDeleteURLs(userID string, urlIDs []string) error {
 	return nil
 }

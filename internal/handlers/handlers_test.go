@@ -13,11 +13,12 @@ import (
 	"shortener/internal/config"
 	"shortener/internal/logger"
 	"shortener/internal/storage"
+	"shortener/internal/user"
 
 	"github.com/stretchr/testify/require"
 )
 
-func SelectStorage(c *config.Config) storage.Storage {
+func SelectStorage(c *config.Config) storage.StorageService {
 	if c.DBConnection != "" {
 		log.Printf("try using DB\n")
 		s := storage.NewStorageDB(c.DBConnection)
@@ -58,14 +59,15 @@ func TestAPIShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	controller := NewController(c, s, sugarLogger)
+	userService := user.NewUserService()
+	controller := NewController(c, s, sugarLogger, userService)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
 			r := httptest.NewRequest(tc.method, "/api/shorten", bytes.NewBufferString(fmt.Sprintf(`{"url":"%s"}`, tc.data)))
 			w := httptest.NewRecorder()
 
-			handler := controller.ShortenURL()
+			handler := controller.Authenticate(controller.ShortenURL())
 			handler.ServeHTTP(w, r)
 
 			res := w.Result()
@@ -89,14 +91,15 @@ func TestShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	controller := NewController(c, s, sugarLogger)
+	userService := user.NewUserService()
+	controller := NewController(c, s, sugarLogger, userService)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
 			r := httptest.NewRequest(tc.method, "/", bytes.NewBufferString(tc.data))
 			w := httptest.NewRecorder()
 
-			handler := controller.ShortenURL()
+			handler := controller.Authenticate(controller.ShortenURL())
 			handler.ServeHTTP(w, r)
 
 			res := w.Result()
@@ -121,7 +124,8 @@ func TestGetOriginalURL(t *testing.T) {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	controller := NewController(c, s, sugarLogger)
+	userService := user.NewUserService()
+	controller := NewController(c, s, sugarLogger, userService)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
@@ -129,7 +133,7 @@ func TestGetOriginalURL(t *testing.T) {
 			r.Header.Set("Content-Type", tc.contentType)
 			w := httptest.NewRecorder()
 
-			handler := controller.ShortenURL()
+			handler := controller.Authenticate(controller.ShortenURL())
 			handler.ServeHTTP(w, r)
 			res1 := w.Result()
 			defer res1.Body.Close()
@@ -139,7 +143,7 @@ func TestGetOriginalURL(t *testing.T) {
 			r2 := httptest.NewRequest(tc.method, string(shortURLfromServer), nil)
 			w2 := httptest.NewRecorder()
 
-			handler2 := controller.GetOriginalURL()
+			handler2 := controller.Authenticate(controller.GetOriginalURL())
 			handler2.ServeHTTP(w2, r2)
 
 			res2 := w2.Result()

@@ -1,4 +1,4 @@
-package service
+package repository
 
 import (
 	"database/sql"
@@ -10,30 +10,31 @@ import (
 
 var ErrDuplicateURL = errors.New("duplicate URL")
 
-type Service interface {
+type Repository interface {
 	GetShortURL_db(originalURL string) (string, error)
 }
-type Serv struct {
+type Repo struct {
 }
 
 const insertRow = `
-INSERT INTO urls (short_url, full_url) VALUES ($1, $2)
-ON CONFLICT (full_url) DO NOTHING
+INSERT INTO urls (user_id, short_url, original_url) VALUES ($1, $2, $3)
+ON CONFLICT (original_url) DO NOTHING
 RETURNING short_url`
 
-func (s *Serv) GetShortURLDB(originalURL string, db *sql.DB) (string, error) {
+func (s *Repo) GetShortURLDB(userID, originalURL string, db *sql.DB) (string, error) {
 	var shortURL string
 	var retErr error
 	shortID := GenerateShortID()
 
-	row := db.QueryRow(insertRow, shortID, originalURL)
-	row.Scan(&shortURL)
+	row := db.QueryRow(insertRow, userID, shortID, originalURL)
+	_ = row.Scan(&shortURL)
+
 	retErr = nil
 
 	if shortURL == "" {
 		// Получение существующего сокращенного URL
 		row := db.QueryRow(
-			"SELECT short_url FROM urls WHERE full_url = $1", originalURL)
+			"SELECT short_url FROM urls WHERE original_url = $1", originalURL)
 		err := row.Scan(&shortURL)
 		if err != nil {
 			return "", fmt.Errorf("error select query: %v", err)

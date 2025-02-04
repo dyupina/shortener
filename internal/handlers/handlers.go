@@ -6,29 +6,128 @@ import (
 	"io"
 	"net/http"
 	"shortener/internal/config"
-	"shortener/internal/service"
+	"shortener/internal/repository"
 	"shortener/internal/storage"
+	"shortener/internal/user"
 	"strconv"
 	"time"
 
 	"encoding/json"
 	"strings"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
 type Controller struct {
-	conf  *config.Config
-	st    storage.Storage
-	sugar *zap.SugaredLogger
+	conf           *config.Config
+	storageService storage.StorageService
+	sugar          *zap.SugaredLogger
+	userService    user.UserService
 }
 
-func NewController(conf *config.Config, st storage.Storage, logger *zap.SugaredLogger) *Controller {
+func NewController(conf *config.Config, storageService storage.StorageService, logger *zap.SugaredLogger, us user.UserService) *Controller {
 	return &Controller{
-		conf:  conf,
-		st:    st,
-		sugar: logger,
+		conf:           conf,
+		storageService: storageService,
+		sugar:          logger,
+		userService:    us,
 	}
+}
+
+func (con *Controller) DeleteUserURLs() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		userID := req.Header.Get("User-ID")
+		if userID == "" {
+			http.Error(res, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		var urlIDs []string
+		err := json.NewDecoder(req.Body).Decode(&urlIDs)
+
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		doneCh := make(chan struct{})
+
+		inputCh := createURLBatchChannel(doneCh, urlIDs)
+		workerChs := distributeDeleteTasks(doneCh, inputCh, con.conf.NumWorkers, userID, con)
+		resultCh := collectDeletionResults(workerChs...)
+
+		go func() {
+			for res := range resultCh {
+				con.sugar.Infof(" Deleted short URL: %s\n", res)
+			}
+		}()
+
+		res.WriteHeader(http.StatusAccepted)
+	}
+}
+
+func (con *Controller) APIGetUserURLs() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		userID := req.Header.Get("User-ID")
+		if userID == "" {
+			http.Error(res, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+
+		urls, exist := con.userService.GetUserURLs(userID)
+
+		if !exist {
+			con.sugar.Debug("(APIGetUserURLs) StatusUnauthorized userID %s\n", userID)
+			res.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if len(urls) == 0 {
+			con.sugar.Debug("(APIGetUserURLs) StatusNoContent")
+			res.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		response, err := json.Marshal(urls)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		_, err = res.Write(response)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+	}
+}
+
+func (con *Controller) Authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		uidFromCookie, err := con.userService.GetUserIDFromCookie(req)
+
+		if err != nil || uidFromCookie == "" {
+			con.sugar.Debugf("(Authenticate) Missing or invalid cookie: %s", err)
+
+			uid := uuid.New().String()
+			if err := con.userService.SetUserIDCookie(res, uid); err != nil {
+				con.sugar.Errorf("(Authenticate) Failed to set user ID cookie: %s", err.Error())
+				http.Error(res, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			con.userService.InitUserURLs(uid)
+			con.sugar.Debugf("(Authenticate) New user ID set in cookie: %s", uid)
+			req.Header.Set("User-ID", uid)
+		} else {
+			con.sugar.Debugf("(Authenticate) Valid user ID from cookie: %s", uidFromCookie)
+			req.Header.Set("User-ID", uidFromCookie)
+		}
+
+		next.ServeHTTP(res, req)
+	})
 }
 
 func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
@@ -113,6 +212,22 @@ func (con *Controller) LoggingMiddleware(next http.Handler) http.Handler {
 				"size", responseData.size,
 			)
 		}
+
+		if method == http.MethodDelete {
+			responseData := &responseData{
+				status: 0,
+				size:   0,
+			}
+			lw := loggingResponseWriter{
+				ResponseWriter: res,
+				responseData:   responseData,
+			}
+			next.ServeHTTP(&lw, req)
+			sugar.Infoln(
+				"status", responseData.status,
+				"size", responseData.size,
+			)
+		}
 	}
 
 	return http.HandlerFunc(logFn)
@@ -144,8 +259,17 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 			originalURL = string(b)
 		}
 
-		shortID, errUpdateData := con.st.UpdateData(originalURL)
-		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
+		userID := req.Header.Get("User-ID")
+		if userID == "" {
+			http.Error(res, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		shortID, errUpdateData := con.storageService.UpdateData(req, originalURL, userID)
+
+		con.userService.AddURLs(con.conf.BaseURL, userID, shortID, originalURL)
+
+		if errUpdateData != nil && errors.Is(errUpdateData, repository.ErrDuplicateURL) {
 			res.WriteHeader(http.StatusConflict)
 		} else {
 			res.WriteHeader(http.StatusCreated)
@@ -162,8 +286,15 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 func (con *Controller) APIShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		originalURL := extractURLfromJSON(res, req)
+		userID := req.Header.Get("User-ID")
+		if userID == "" {
+			http.Error(res, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 
-		shortID, errUpdateData := con.st.UpdateData(originalURL)
+		shortID, errUpdateData := con.storageService.UpdateData(req, originalURL, userID)
+
+		con.userService.AddURLs(con.conf.BaseURL, userID, shortID, originalURL)
 
 		shorturl.URL = con.conf.BaseURL + "/" + shortID
 
@@ -174,7 +305,7 @@ func (con *Controller) APIShortenURL() http.HandlerFunc {
 		}
 		res.Header().Set("Content-Type", "application/json")
 
-		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
+		if errUpdateData != nil && errors.Is(errUpdateData, repository.ErrDuplicateURL) {
 			res.WriteHeader(http.StatusConflict)
 		} else {
 			res.WriteHeader(http.StatusCreated)
@@ -196,11 +327,21 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 			return
 		}
 
+		userID := req.Header.Get("User-ID")
+		if userID == "" {
+			http.Error(res, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
 		batchResponse := []batchResponseEntity{}
 		var errUpdateData error
 		for _, url := range urls {
-			shortID, err := con.st.UpdateData(url.OriginalURL)
+			shortID, err := con.storageService.UpdateData(req, url.OriginalURL, userID)
 			errUpdateData = err
+
+			if err == nil {
+				con.userService.AddURLs(con.conf.BaseURL, userID, shortID, url.OriginalURL)
+			}
 
 			batchResponse = append(batchResponse, batchResponseEntity{
 				CorrelationID: url.CorrelationID,
@@ -214,7 +355,7 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 		}
 		res.Header().Set("Content-Type", "application/json")
 
-		if errUpdateData != nil && errors.Is(errUpdateData, service.ErrDuplicateURL) {
+		if errUpdateData != nil && errors.Is(errUpdateData, repository.ErrDuplicateURL) {
 			res.WriteHeader(http.StatusConflict)
 		} else {
 			res.WriteHeader(http.StatusCreated)
@@ -231,10 +372,16 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 func (con *Controller) GetOriginalURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		id := strings.TrimPrefix(req.URL.Path, "/")
-		originalURL, err := con.st.GetData(id)
+
+		originalURL, isDeleted, err := con.storageService.GetData(id)
 
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+		if isDeleted {
+			res.WriteHeader(http.StatusGone)
+			http.Error(res, "Gone", http.StatusGone)
 			return
 		}
 
@@ -244,7 +391,7 @@ func (con *Controller) GetOriginalURL() http.HandlerFunc {
 
 func (con *Controller) PingHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		err := con.st.Ping()
+		err := con.storageService.Ping()
 		if err != nil {
 			con.sugar.Errorf("Database connection error: %v", err)
 			http.Error(res, "Database connection error", http.StatusInternalServerError)
