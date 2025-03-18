@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"shortener/internal/config"
 	"shortener/internal/domain/models"
-	"shortener/internal/service"
+	"shortener/internal/repository"
 	"strconv"
 	"sync"
 	"syscall"
@@ -38,37 +39,37 @@ func NewStorageFile(c *config.Config) *StorageFile {
 	}
 }
 
-func (s *StorageFile) UpdateData(originalURL string) (string, error) {
+func (s *StorageFile) UpdateData(req *http.Request, originalURL, userID string) (shortURL string, retErr error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	shortID := service.GenerateShortID()
+	shortURL = repository.GenerateShortID()
 
 	for k, v := range s.urlStorage {
 		if v == originalURL {
-			return k, service.ErrDuplicateURL
+			return k, repository.ErrDuplicateURL
 		}
 	}
 
 	newMap := make(map[string]string)
-	newMap[shortID] = originalURL
+	newMap[shortURL] = originalURL
 
-	s.urlStorage[shortID] = originalURL
+	s.urlStorage[shortURL] = originalURL
 
 	s.Events <- newMap
 
-	return shortID, nil
+	return shortURL, nil
 }
 
-func (s *StorageFile) GetData(shortID string) (string, error) {
+func (s *StorageFile) GetData(shortID string) (originalURL string, isDeleted bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	originalURL, exists := s.urlStorage[shortID]
 	if !exists {
-		return "", fmt.Errorf("shortID not found: %s", shortID)
+		return "", false, fmt.Errorf("shortID not found: %s", shortID)
 	}
-	return originalURL, nil
+	return originalURL, false, nil
 }
 
 func RestoreURLstorage(c *config.Config, s *StorageFile) error {
@@ -150,6 +151,10 @@ func BackupURLs(s *StorageFile, newMap map[string]string, counter int) {
 }
 
 func (s *StorageFile) Ping() error {
+	return nil
+}
+
+func (s *StorageFile) BatchDeleteURLs(userID string, urlIDs []string) error {
 	return nil
 }
 

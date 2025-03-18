@@ -7,6 +7,7 @@ import (
 	"shortener/internal/config"
 	"shortener/internal/handlers"
 	"shortener/internal/logger"
+	"shortener/internal/user"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -22,7 +23,8 @@ func main() {
 		sugarLogger.Fatalf("Failed to initialize logger: %v", err)
 	}
 
-	ctrl := handlers.NewController(c, s, sugarLogger)
+	userService := user.NewUserService()
+	ctrl := handlers.NewController(c, s, sugarLogger, userService)
 	r := chi.NewRouter()
 
 	app.InitMiddleware(r, c, ctrl)

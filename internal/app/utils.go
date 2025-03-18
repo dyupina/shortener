@@ -6,7 +6,7 @@ import (
 	"shortener/internal/storage"
 )
 
-func SelectStorage(c *config.Config) storage.Storage {
+func SelectStorage(c *config.Config) storage.StorageService {
 	if c.DBConnection != "" {
 		log.Printf("try using DB\n")
 		s := storage.NewStorageDB(c.DBConnection)
