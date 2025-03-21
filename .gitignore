@@ -24,3 +24,6 @@ vendor/
 
 
 internal/storage/shortener_storage
+coverage/
+test.sh
+cookies.txt

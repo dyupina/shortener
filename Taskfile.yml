@@ -59,3 +59,8 @@ tasks:
       cmds:
         - golangci-lint run --config .golangci.yml
       silent: true
+  all:
+    desc: Run linters and execute app
+    cmds:
+      - go run cmd/shortener/main.go
+    deps: [lint]
