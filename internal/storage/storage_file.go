@@ -16,7 +16,7 @@ import (
 	"syscall"
 )
 
-// StorageFile - структура для хранения данных URL в файле.
+// StorageFile - structure for storing URL data in a file.
 type StorageFile struct {
 	urlStorage map[string]string
 	mu         sync.Mutex
@@ -24,7 +24,7 @@ type StorageFile struct {
 	file       io.Writer
 }
 
-// NewStorageFile создаёт и возвращает новый экземпляр StorageFile.
+// NewStorageFile creates and returns a new instance of StorageFile.
 func NewStorageFile(c *config.Config) *StorageFile {
 	bufSize := 100
 
@@ -41,7 +41,7 @@ func NewStorageFile(c *config.Config) *StorageFile {
 	}
 }
 
-// UpdateData обновляет данные в хранилище и возвращает сокращённый URL.
+// UpdateData updates the data in the storage and returns the shortened URL.
 func (s *StorageFile) UpdateData(req *http.Request, originalURL, userID string) (shortURL string, retErr error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -64,7 +64,7 @@ func (s *StorageFile) UpdateData(req *http.Request, originalURL, userID string) 
 	return shortURL, nil
 }
 
-// GetData извлекает оригинальный URL и статус удаления из хранилища.
+// GetData retrieves the original URL and deletion status from the storage.
 func (s *StorageFile) GetData(shortID string) (originalURL string, isDeleted bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -76,7 +76,7 @@ func (s *StorageFile) GetData(shortID string) (originalURL string, isDeleted boo
 	return originalURL, false, nil
 }
 
-// RestoreURLstorage восстанавливает данные URL из резервной копии файла.
+// RestoreURLStorage restores URL data from a backup file.
 func RestoreURLstorage(c *config.Config, s *StorageFile) error {
 	file, err := OpenFileAsReader(c)
 	if err != nil {
@@ -114,7 +114,7 @@ func RestoreURLstorage(c *config.Config, s *StorageFile) error {
 	return nil
 }
 
-// AutoSave запускает автоматическое сохранение изменений данных URL.
+// AutoSave initiates automatic saving of URL data changes.
 func AutoSave(s *StorageFile) {
 	go func() {
 		i := 0
@@ -126,7 +126,7 @@ func AutoSave(s *StorageFile) {
 	}()
 }
 
-// BackupURLs производит резервное копирование данных URL в файл.
+// BackupURLs performs backup of URL data to a file.
 func BackupURLs(s *StorageFile, newMap map[string]string, counter int) {
 	shortID := ""
 	originalURL := ""
@@ -157,18 +157,18 @@ func BackupURLs(s *StorageFile, newMap map[string]string, counter int) {
 	}
 }
 
-// Ping проверяет соединение с базой данных. В данном случае не используется.
+// Ping checks the connection to the database. Not used in this case.
 func (s *StorageFile) Ping() error {
 	return nil
 }
 
-// BatchDeleteURLs отмечает URL-адреса как удаленные в базе данных для заданного пользователя.
-// В данном случае не используется.
+// BatchDeleteURLs marks URLs as deleted in the database for a given user.
+// Not used in this instance.
 func (s *StorageFile) BatchDeleteURLs(userID string, urlIDs []string) error {
 	return nil
 }
 
-// OpenFileAsReader открывает файл для чтения и создаёт файл, если его не существует.
+// OpenFileAsReader opens a file for reading and creates the file if it does not exist.
 func OpenFileAsReader(c *config.Config) (io.ReadWriteCloser, error) {
 	file, err := os.OpenFile(c.URLStorageFile, os.O_RDONLY|os.O_CREATE, 0666) //nolint:mnd // read and write permission for all users
 	if err != nil {
@@ -177,7 +177,7 @@ func OpenFileAsReader(c *config.Config) (io.ReadWriteCloser, error) {
 	return file, nil
 }
 
-// OpenFileAsWriter открывает файл для записи и создаёт файл, если его не существует.
+// OpenFileAsWriter opens a file for writing and creates the file if it does not exist.
 func OpenFileAsWriter(c *config.Config) (io.ReadWriteCloser, error) {
 	file, err := os.OpenFile(c.URLStorageFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666) //nolint:mnd // same
 	if err != nil {
@@ -186,7 +186,7 @@ func OpenFileAsWriter(c *config.Config) (io.ReadWriteCloser, error) {
 	return file, nil
 }
 
-// ReadWriteCloserClose закрывает ReadWriteCloser.
+// ReadWriteCloserClose closes the ReadWriteCloser.
 func ReadWriteCloserClose(rwc io.ReadWriteCloser) {
 	_ = rwc.Close()
 }

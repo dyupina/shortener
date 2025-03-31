@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Controller управляет HTTP-запросами для работы с сокращением URL.
+// Controller manages HTTP requests for URL shortening operations.
 type Controller struct {
 	conf           *config.Config
 	storageService storage.StorageService
@@ -27,8 +27,8 @@ type Controller struct {
 	userService    user.UserService
 }
 
-// NewController создаёт и возвращает новый экземпляр Controller, используя переданные компоненты
-// конфигурации, хранилища, логгера и сервиса пользователя.
+// NewController creates and returns a new instance of Controller using the provided configuration,
+// storage, logger, and user service components.
 func NewController(conf *config.Config, storageService storage.StorageService, logger *zap.SugaredLogger, us user.UserService) *Controller {
 	return &Controller{
 		conf:           conf,
@@ -38,8 +38,8 @@ func NewController(conf *config.Config, storageService storage.StorageService, l
 	}
 }
 
-// DeleteUserURLs обрабатывает HTTP-запросы для удаления URL-адресов, принадлежащих пользователю.
-// Поток удаленных URL-адресов обрабатывается асинхронно.
+// DeleteUserURLs handles HTTP requests to delete URLs belonging to a user.
+// The stream of deleted URLs is processed asynchronously.
 func (con *Controller) DeleteUserURLs() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		userID := req.Header.Get("User-ID")
@@ -72,14 +72,14 @@ func (con *Controller) DeleteUserURLs() http.HandlerFunc {
 	}
 }
 
-// APIGetUserURLs обрабатывает запросы на получение всех URL-адресов, связанных с пользователем.
-// Возвращает JSON-ответ с URL-адресами пользователя.
+// APIGetUserURLs handles requests to retrieve all URLs associated with a user.
+// Returns a JSON response with the user's URLs.
 //
-// HTTP-ответ:
-//   - 401 Unauthorized: если пользователь не аутентифицирован.
-//   - 204 No Content: если пользователь не имеет связанных URL-адресов.
-//   - 200 OK: успешное получение URL-адресов пользователя в формате JSON.
-//   - 500 Internal Server Error: если соединение не удалось.
+// HTTP Responses:
+//   - 401 Unauthorized: if the user is not authenticated.
+//   - 204 No Content: if the user has no associated URLs.
+//   - 200 OK: successful retrieval of user's URLs in JSON format.
+//   - 500 Internal Server Error: if the connection failed.
 func (con *Controller) APIGetUserURLs() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		userID := req.Header.Get("User-ID")
@@ -117,8 +117,8 @@ func (con *Controller) APIGetUserURLs() http.HandlerFunc {
 	}
 }
 
-// Authenticate осуществляет аутентификацию пользователя с использованием HTTP-куки.
-// Устанавливает новый идентификатор пользователя, если куки отсутствуют или недействительны.
+// Authenticate performs user authentication using HTTP cookies.
+// Sets a new user ID if the cookies are missing or invalid.
 func (con *Controller) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		uidFromCookie, err := con.userService.GetUserIDFromCookie(req)
@@ -145,10 +145,10 @@ func (con *Controller) Authenticate(next http.Handler) http.Handler {
 	})
 }
 
-// GzipDecodeMiddleware декодирует входящее содержимое HTTP-запросов, закодированное с использованием gzip.
+// GzipDecodeMiddleware decodes the content of incoming HTTP requests encoded with gzip.
 //
-// HTTP-ответ:
-//   - 400 Bad Request: если декодирование gzip-содержимого не удалось.
+// HTTP Response:
+//   - 400 Bad Request: if gzip content decoding fails.
 func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		if req.Header.Get("Content-Encoding") == "gzip" {
@@ -164,12 +164,12 @@ func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// GzipEncodeMiddleware сжимает исходящие HTTP-ответы с использованием gzip.
-// Условие сжатия: клиент поддерживает gzip (Accept-Encoding),
-// а содержимое ответа является JSON или HTML, и его размер превышает минимальную границу для сжатия.
+// GzipEncodeMiddleware compresses outgoing HTTP responses using gzip.
+// Compression criteria: client supports gzip (Accept-Encoding),
+// the response content is JSON or HTML, and its size exceeds the minimum threshold for compression.
 //
-// HTTP-ответ:
-//   - 400 Bad Request: если создание gzip.Writer не удалось.
+// HTTP Response:
+//   - 400 Bad Request: if creating gzip.Writer fails.
 func (con *Controller) GzipEncodeMiddleware(next http.Handler) http.Handler {
 	compressFn := func(res http.ResponseWriter, req *http.Request) {
 		if !strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
@@ -205,13 +205,13 @@ func (con *Controller) GzipEncodeMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(compressFn)
 }
 
-// LoggingMiddleware логирует информацию о HTTP-запросах и ответах.
+// LoggingMiddleware logs information about HTTP requests and responses.
 //
-// Логирует:
-//   - Метод запроса (GET, POST, DELETE).
-//   - URI запроса.
-//   - Длительность обработки запроса.
-//   - Статус и размер ответа в случае POST и DELETE.
+// Logs:
+//   - Request method (GET, POST, DELETE).
+//   - Request URI.
+//   - Duration of request processing.
+//   - Status and size of the response in case of POST and DELETE.
 func (con *Controller) LoggingMiddleware(next http.Handler) http.Handler {
 	logFn := func(res http.ResponseWriter, req *http.Request) {
 		sugar := con.sugar
@@ -265,7 +265,7 @@ func (con *Controller) LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(logFn)
 }
 
-// PanicRecoveryMiddleware восстанавливает приложение после паники.
+// PanicRecoveryMiddleware recovers the application after a panic.
 func (con *Controller) PanicRecoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		defer func() {
@@ -279,13 +279,13 @@ func (con *Controller) PanicRecoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// ShortenURL обрабатывает запросы на создание сокращенного URL из входящего URL.
+// ShortenURL handles requests to create a shortened URL from an incoming URL.
 //
-// HTTP-ответ:
-//   - 401 Unauthorized: если пользователь не аутентифицирован.
-//   - 201 Created: если сокращение URL завершилось успешно.
-//   - 409 Conflict: если оригинальный URL уже существует в базе.
-//   - 400 Bad Request: если произошла ошибка при записи ответа.
+// HTTP Responses:
+//   - 401 Unauthorized: if the user is not authenticated.
+//   - 201 Created: if the URL shortening was successful.
+//   - 409 Conflict: if the original URL already exists in the database.
+//   - 400 Bad Request: if there was an error writing the response.
 func (con *Controller) ShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		var originalURL string
@@ -323,13 +323,13 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 	}
 }
 
-// APIShortenURL предоставляет API для создания сокращенного URL из входящего JSON-запроса.
+// APIShortenURL provides an API for creating a shortened URL from an incoming JSON request.
 //
-// HTTP-ответ:
-//   - 401 Unauthorized: если пользователь не аутентифицирован.
-//   - 201 Created: если сокращение URL завершилось успешно.
-//   - 409 Conflict: если оригинальный URL уже существует в базе.
-//   - 400 Bad Request: если произошла ошибка при записи ответа или сериализации.
+// HTTP Responses:
+//   - 401 Unauthorized: if the user is not authenticated.
+//   - 201 Created: if URL shortening was successful.
+//   - 409 Conflict: if the original URL already exists in the database.
+//   - 400 Bad Request: if there was an error in writing the response or serialization.
 func (con *Controller) APIShortenURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		originalURL := extractURLfromJSON(res, req)
@@ -366,13 +366,13 @@ func (con *Controller) APIShortenURL() http.HandlerFunc {
 	}
 }
 
-// APIShortenBatchURL обрабатывает пакетные запросы на создание сокращенных URL из JSON-запроса.
+// APIShortenBatchURL handles batch requests for creating shortened URLs from a JSON request.
 //
-// HTTP-ответ:
-//   - 401 Unauthorized: если пользователь не аутентифицирован.
-//   - 201 Created: если пакетное сокращение URL завершилось успешно.
-//   - 409 Conflict: если один из оригинальных URL уже существует в базе.
-//   - 400 Bad Request: если произошла ошибка при обработке запроса или сериализации.
+// HTTP Responses:
+//   - 401 Unauthorized: if the user is not authenticated.
+//   - 201 Created: if batch URL shortening is successful.
+//   - 409 Conflict: if one of the original URLs already exists in the database.
+//   - 400 Bad Request: if an error occurred during request processing or serialization.
 func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		urls := extractURLsfromJSONBatchRequest(req)
@@ -423,12 +423,12 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 	}
 }
 
-// GetOriginalURL восстанавливает оригинальный URL из сокращенного идентификатора.
+// GetOriginalURL restores the original URL from a shortened identifier.
 //
-// HTTP-ответ:
-//   - 307 Temporary Redirect: перенаправление на оригинальный URL, если он найден.
-//   - 410 Gone: если URL был удален.
-//   - 400 Bad Request: если была ошибка при получении данных.
+// HTTP Responses:
+//   - 307 Temporary Redirect: redirect to the original URL if it is found.
+//   - 410 Gone: if the URL has been deleted.
+//   - 400 Bad Request: if there was an error retrieving the data.
 func (con *Controller) GetOriginalURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		id := strings.TrimPrefix(req.URL.Path, "/")
@@ -449,11 +449,11 @@ func (con *Controller) GetOriginalURL() http.HandlerFunc {
 	}
 }
 
-// PingHandler проверяет соединение с хранилищем данных.
+// PingHandler checks the connection to the data storage.
 //
-// HTTP-ответ:
-//   - 200 OK: если соединение успешно.
-//   - 500 Internal Server Error: если соединение не удалось.
+// HTTP Responses:
+//   - 200 OK: if the connection is successful.
+//   - 500 Internal Server Error: if the connection failed.
 func (con *Controller) PingHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		err := con.storageService.Ping()

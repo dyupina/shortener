@@ -1,4 +1,4 @@
-// Package config используется для настройки конфигурации приложения.
+// Package config is used to configure the application settings.
 package config
 
 import (
@@ -6,23 +6,23 @@ import (
 	"os"
 )
 
-// Config - структура конфигурации приложения.
+// Config - application configuration structure.
 type Config struct {
-	// Addr: строка с адресом, на котором будет запущен сервер (например, "localhost:8080").
+	// Addr: string with the address on which the server will run (e.g., "localhost:8080").
 	Addr string
-	// BaseURL: базовый URL приложения, использующийся для формирования сокращённых ссылок.
+	// BaseURL: base URL of the application used to create shortened links.
 	BaseURL string
-	// Timeout: целочисленное значение времени (в секундах) для таймаута обработки запросов.
+	// Timeout: integer value representing the request processing timeout in seconds.
 	Timeout int
-	// URLStorageFile: путь к файлу, используемому для хранения URL-адресов.
+	// URLStorageFile: path to the file used for storing URLs.
 	URLStorageFile string
-	// DBConnection: строка подключения к базе данных.
+	// DBConnection: database connection string.
 	DBConnection string
-	// NumWorkers: количество рабочих потоков, используемых приложением для обработки задач.
+	// NumWorkers: number of worker threads used by the application for task processing.
 	NumWorkers int
 }
 
-// NewConfig создаёт и возвращает новый экземпляр структуры Config с предустановленными значениями.
+// NewConfig creates and returns a new instance of the Config structure with predefined values.
 func NewConfig() *Config {
 	return &Config{
 		Addr:           "localhost:8080",
@@ -34,7 +34,7 @@ func NewConfig() *Config {
 	}
 }
 
-// Init инициализирует конфигурацию приложения, используя переменные окружения и флаги командной строки.
+// Init initializes the application configuration using environment variables and command-line flags.
 func Init(c *Config) {
 	if val, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
 		c.Addr = val

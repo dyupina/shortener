@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// ExampleController_ShortenURL демонстрирует работу эндпоинта для сокращения URL.
+// ExampleController_ShortenURL demonstrates the endpoint for URL shortening.
 func ExampleController_ShortenURL() {
 	c := config.NewConfig()
 	s := SelectStorage(c)
@@ -46,7 +46,7 @@ func ExampleController_ShortenURL() {
 	// Response Body: http://localhost:8080/rbgJyF62IM
 }
 
-// ExampleController_APIGetUserURLs демонстрирует работу эндпоинта для получения URL пользователей.
+// ExampleController_APIGetUserURLs demonstrates the endpoint for retrieving user URLs.
 func ExampleController_APIGetUserURLs() {
 	c := config.NewConfig()
 	s := SelectStorage(c)
@@ -77,7 +77,7 @@ func ExampleController_APIGetUserURLs() {
 	// Response Body: [{"short_url":"http://localhost/abc123","original_url":"http://ExampleController_.com"}]
 }
 
-// ExampleController_PingHandler демонстрирует работу эндпоинта для проверки соединения.
+// ExampleController_PingHandler demonstrates the endpoint for connection checking.
 func ExampleController_PingHandler() {
 	c := config.NewConfig()
 	s := SelectStorage(c)
@@ -101,7 +101,7 @@ func ExampleController_PingHandler() {
 	// Status Code: 200 OK
 }
 
-// ExampleController_GetOriginalURL демонстрирует работу эндпоинта для получения исходного URL по сокращенному.
+// ExampleController_GetOriginalURL demonstrates the endpoint for retrieving the original URL from the shortened one.
 func ExampleController_GetOriginalURL() {
 	c := config.NewConfig()
 	s := storage.NewStorageMemory()
@@ -128,7 +128,7 @@ func ExampleController_GetOriginalURL() {
 	fmt.Println("Location Header:", rr.Header().Get("Location"))
 }
 
-// ExampleController_APIShortenURL демонстрирует работу эндпоинта для создания сокращенного URL из JSON-запроса.
+// ExampleController_APIShortenURL demonstrates the endpoint for creating a shortened URL from a JSON request.
 func ExampleController_APIShortenURL() {
 	c := config.NewConfig()
 	s := storage.NewStorageMemory()
@@ -156,7 +156,7 @@ func ExampleController_APIShortenURL() {
 	fmt.Println("Response Body:", responseBody)
 }
 
-// ExampleController_APIShortenBatchURL демонстрирует работу эндпоинта для пакетного сокращения URL.
+// ExampleController_APIShortenBatchURL demonstrates the endpoint for batch URL shortening.
 func ExampleController_APIShortenBatchURL() {
 	c := config.NewConfig()
 	s := storage.NewStorageMemory()
@@ -187,7 +187,7 @@ func ExampleController_APIShortenBatchURL() {
 	fmt.Println("Response Body:", responseBody)
 }
 
-// ExampleController_DeleteUserURLs демонстрирует работу эндпоинта для удаления URL пользователя.
+// ExampleController_DeleteUserURLs demonstrates the endpoint for deleting user URLs.
 func ExampleController_DeleteUserURLs() {
 	c := config.NewConfig()
 	s := storage.NewStorageMemory()

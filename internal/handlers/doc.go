@@ -1,2 +1,2 @@
-// Package handlers содержит реализацию HTTP-хендлеров.
+// Package handlers contains the implementation of HTTP handlers.
 package handlers

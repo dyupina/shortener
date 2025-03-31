@@ -6,7 +6,7 @@ import (
 	"shortener/internal/storage"
 )
 
-// SelectStorage - выбор хранилища для сохранения URL: БД, файл или память
+// SelectStorage - selects the storage for saving URLs: database, file, or memory.
 func SelectStorage(c *config.Config) storage.StorageService {
 	if c.DBConnection != "" {
 		log.Printf("try using DB\n")

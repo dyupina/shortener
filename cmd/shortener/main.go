@@ -14,7 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func runShortener() {
+func main() {
 	c := config.NewConfig()
 	config.Init(c)
 
@@ -35,13 +35,5 @@ func runShortener() {
 	err = http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
 	if err != nil {
 		sugarLogger.Fatalf("Failed to start server: %v", err)
-	}
-}
-
-func main() {
-	go runShortener()
-	err := http.ListenAndServe(":8081", nil) //nolint:gosec // timeout is not important for profiling, I think
-	if err != nil {
-		return
 	}
 }

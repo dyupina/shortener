@@ -1,11 +1,11 @@
 package models
 
-// StorageJSON - структура для хранения информации об URL в формате JSON.
+// StorageJSON - structure for storing URL information in JSON format.
 type StorageJSON struct {
-	// UUID: уникальный идентификатор для записи URL.
+	// UUID: unique identifier for the URL record.
 	UUID string `json:"uuid"`
-	// ShortURL: сокращённая версия URL, связанная с данной записью.
+	// ShortURL: shortened version of the URL associated with this record.
 	ShortURL string `json:"short_url"`
-	// OriginalURL: оригинальный URL, который соответствует сокращённой версии.
+	// OriginalURL: original URL that corresponds to the shortened version.
 	OriginalURL string `json:"original_url"`
 }

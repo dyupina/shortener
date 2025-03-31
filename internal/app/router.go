@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// InitMiddleware - инициализирует промежуточные обработчики (middleware) для маршрутизатора.
+// InitMiddleware - initializes middleware handlers for the router.
 func InitMiddleware(r *chi.Mux, conf *config.Config, ctrl *handlers.Controller) {
 	r.Use(ctrl.PanicRecoveryMiddleware)
 	r.Use(middleware.Recoverer)
@@ -19,17 +19,18 @@ func InitMiddleware(r *chi.Mux, conf *config.Config, ctrl *handlers.Controller) 
 	r.Use(ctrl.LoggingMiddleware)
 	r.Use(ctrl.GzipEncodeMiddleware)
 	r.Use(ctrl.GzipDecodeMiddleware)
+	r.Mount("/debug", middleware.Profiler())
 }
 
-// Routing - регистрирует маршруты для работы с URL-контроллером.
-// Зарегистрированные маршруты:
-//   - POST "/": создаёт короткую версию URL с помощью ctrl.ShortenURL().
-//   - GET "/{id}": возвращает оригинальный URL по сокращённой версии с использованием ctrl.GetOriginalURL().
-//   - POST "/api/shorten": API-метод для сокращения URL через ctrl.APIShortenURL().
-//   - POST "/api/shorten/batch": API-метод для пакетного сокращения URL через ctrl.APIShortenBatchURL().
-//   - GET "/ping": проверка доступности сервиса через ctrl.PingHandler().
-//   - GET "/api/user/urls": получение списка URL пользователя через ctrl.APIGetUserURLs().
-//   - DELETE "/api/user/urls": удаление списка URL пользователя с помощью ctrl.DeleteUserURLs().
+// Routing - registers routes for the URL controller.
+// Registered routes:
+//   - POST "/": creates a shortened version of a URL using ctrl.ShortenURL().
+//   - GET "/{id}": returns the original URL from the shortened version using ctrl.GetOriginalURL().
+//   - POST "/api/shorten": API method for shortening a URL through ctrl.APIShortenURL().
+//   - POST "/api/shorten/batch": API method for batch URL shortening through ctrl.APIShortenBatchURL().
+//   - GET "/ping": service availability check through ctrl.PingHandler().
+//   - GET "/api/user/urls": retrieves the user's URL list through ctrl.APIGetUserURLs().
+//   - DELETE "/api/user/urls": deletes the user's URL list using ctrl.DeleteUserURLs().
 func Routing(r *chi.Mux, ctrl *handlers.Controller) {
 	r.Post("/", ctrl.ShortenURL())
 	r.Get("/{id}", ctrl.GetOriginalURL())

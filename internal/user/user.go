@@ -8,7 +8,7 @@ import (
 	"github.com/gorilla/securecookie"
 )
 
-// UserURL - структура для хранения информации об URL-пользователя.
+// UserURL - structure for storing user URL information.
 type UserURL struct {
 	UUID        string `db:"user_id"`
 	ShortURL    string `json:"short_url" db:"short_url"`
@@ -16,35 +16,35 @@ type UserURL struct {
 	DeletedFlag bool   `db:"is_deleted"`
 }
 
-// user реализует сервис работы с URL пользователя, включая управление куки и хранение URL.
+// user implements the service for handling user URLs, including cookie management and URL storage.
 type user struct {
 	urls       map[string][]UserURL
 	cookieName string
 	cookie     *securecookie.SecureCookie
 }
 
-// UserService - интерфейс для управления URL пользователя и куки.
+// UserService - interface for managing user URLs and cookies.
 type UserService interface {
-	// GetUserIDFromCookie получает идентификатор пользователя из куки.
+	// GetUserIDFromCookie retrieves the user ID from a cookie.
 	GetUserIDFromCookie(r *http.Request) (string, error)
-	// SetUserIDCookie устанавливает куки с идентификатором пользователя.
+	// SetUserIDCookie sets a cookie with the user ID.
 	SetUserIDCookie(res http.ResponseWriter, uid string) error
-	// GetUserURLs возвращает все URL, связанные с пользователем.
+	// GetUserURLs returns all URLs associated with the user.
 	GetUserURLs(userID string) ([]UserURL, bool)
-	// AddURLs добавляет URL для пользователя.
+	// AddURLs adds URLs for the user.
 	AddURLs(baseURL, userID, shortURL, originalURL string)
-	// InitUserURLs инициализирует структуру URL для пользователя.
+	// InitUserURLs initializes the URL structure for the user.
 	InitUserURLs(userID string)
 }
 
-// newSecurecookie создаёт и возвращает новый экземпляр securecookie для кодирования и декодирования значений куки.
+// newSecurecookie creates and returns a new instance of securecookie for encoding and decoding cookie values.
 func newSecurecookie() *securecookie.SecureCookie {
 	var hashKey = []byte("very-very-very-very-secret-key32")
 	var blockKey = []byte("a-lot-of-secret!")
 	return securecookie.New(hashKey, blockKey)
 }
 
-// NewUserService создаёт и возвращает новый экземпляр сервиса UserService.
+// NewUserService creates and returns a new instance of the UserService.
 func NewUserService() UserService {
 	return &user{
 		urls:       make(map[string][]UserURL),
@@ -53,7 +53,7 @@ func NewUserService() UserService {
 	}
 }
 
-// GetUserIDFromCookie возвращает идентификатор пользователя из HTTP-запроса.
+// GetUserIDFromCookie returns the user ID from an HTTP request.
 func (u *user) GetUserIDFromCookie(req *http.Request) (string, error) {
 	cookie, err := req.Cookie(u.cookieName)
 	if err != nil {
@@ -68,7 +68,7 @@ func (u *user) GetUserIDFromCookie(req *http.Request) (string, error) {
 	return uid, nil
 }
 
-// SetUserIDCookie устанавливает HTTP-куки с идентификатором пользователя.
+// SetUserIDCookie sets an HTTP cookie with the user ID.
 func (u *user) SetUserIDCookie(res http.ResponseWriter, uid string) error {
 	encoded, err := u.cookie.Encode(u.cookieName, uid)
 
@@ -88,7 +88,7 @@ func (u *user) SetUserIDCookie(res http.ResponseWriter, uid string) error {
 	return err
 }
 
-// GetUserURLs возвращает URL, принадлежащие пользователю, и флаг существования.
+// GetUserURLs returns URLs belonging to the user and an existence flag.
 func (u *user) GetUserURLs(userID string) ([]UserURL, bool) {
 	urls, exist := u.urls[userID]
 	return urls, exist
@@ -96,7 +96,7 @@ func (u *user) GetUserURLs(userID string) ([]UserURL, bool) {
 
 const estimatedSize = 100
 
-// AddURLs добавляет новый URL в хранилище URL пользователя.
+// AddURLs adds a new URL to the user's URL storage.
 func (u *user) AddURLs(baseURL, userID, shortURL, originalURL string) {
 	if _, exists := u.urls[userID]; !exists { // memory optimisation
 		u.urls[userID] = make([]UserURL, 0, estimatedSize)
@@ -106,7 +106,7 @@ func (u *user) AddURLs(baseURL, userID, shortURL, originalURL string) {
 	u.urls[userID] = append(u.urls[userID], UserURL{ShortURL: short, OriginalURL: originalURL})
 }
 
-// InitUserURLs инициализирует хранилище URL для пользователя.
+// InitUserURLs initializes the URL storage for a user.
 func (u *user) InitUserURLs(userID string) {
 	u.urls[userID] = []UserURL{}
 }

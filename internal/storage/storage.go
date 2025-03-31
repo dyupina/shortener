@@ -6,15 +6,15 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-// StorageService описывает интерфейс для реализации разных типов хранилищ данных URL.
+// StorageService describes the interface for implementing different types of URL data storage.
 type StorageService interface {
-	// UpdateData обновляет данные в хранилище и возвращает сокращённый URL.
+	// UpdateData updates the data in the storage and returns the shortened URL.
 	UpdateData(req *http.Request, originalURL, userID string) (shortURL string, retErr error)
-	// GetData извлекает оригинальный URL.
+	// GetData retrieves the original URL.
 	GetData(shortID string) (originalURL string, isDeleted bool, err error)
-	// Ping проверяет соединение с базой данных, если она используется.
+	// Ping checks the connection to the database, if one is used.
 	Ping() error
-	// BatchDeleteURLs отмечает URL-адреса как удаленные в базе данных для заданного пользователя,
-	// если БД используется
+	// BatchDeleteURLs marks URLs as deleted in the database for a given user,
+	// if a database is used.
 	BatchDeleteURLs(userID string, urlIDs []string) error
 }

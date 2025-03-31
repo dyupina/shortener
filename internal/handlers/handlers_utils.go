@@ -38,31 +38,31 @@ type (
 	}
 )
 
-// Write перезаписывает метод Write интерфейса http.ResponseWriter.
-// Функция записывает данные в ответ HTTP и обновляет размер записанных
-// данных в структуре responseData для последующего логирования.
+// Write overrides the Write method of the http.ResponseWriter interface.
+// The function writes data to the HTTP response and updates the size of
+// written data in the responseData structure for subsequent logging.
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	size, err := r.ResponseWriter.Write(b)
 	r.responseData.size += size
 	return size, err
 }
 
-// WriteHeader перезаписывает метод WriteHeader интерфейса http.ResponseWriter.
+// WriteHeader overrides the WriteHeader method of the http.ResponseWriter interface.
 //
-// Функция записывает статусный код в ответ HTTP и обновляет его
-// в структуре responseData для последующего логирования.
+// The function writes the status code to the HTTP response and updates it
+// in the responseData structure for subsequent logging.
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.responseData.status = statusCode
 }
 
-// gzipWriter обёртывает http.ResponseWriter для поддержки сжатия данных с помощью gzip.
+// gzipWriter wraps http.ResponseWriter to support data compression using gzip.
 type gzipWriter struct {
 	http.ResponseWriter
 	Writer io.Writer
 }
 
-// Write записывает сжатые данные в ответ HTTP.
+// Write writes compressed data to the HTTP response.
 func (w gzipWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }

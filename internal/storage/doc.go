@@ -1,7 +1,7 @@
-// Package storage предоставляет интерфейсы и реализацию для работы с хранилищами данных URL.
+// Package storage provides interfaces and implementations for working with URL data stores.
 //
-// Пакет поддерживает несколько типов хранилищ:
-// 1. StorageDB - для работы с базой данных PostgreSQL.
-// 2. StorageFile - для хранения данных в файлах на диске.
-// 3. StorageMemory - для хранения данных в оперативной памяти.
+// The package supports multiple types of storage:
+// 1. StorageDB - for working with a PostgreSQL database.
+// 2. StorageFile - for storing data in files on disk.
+// 3. StorageMemory - for storing data in memory.
 package storage
