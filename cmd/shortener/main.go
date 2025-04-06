@@ -9,6 +9,8 @@ import (
 	"shortener/internal/logger"
 	"shortener/internal/user"
 
+	_ "net/http/pprof" //nolint:gosec // Use for Iter16
+
 	"github.com/go-chi/chi/v5"
 )
 

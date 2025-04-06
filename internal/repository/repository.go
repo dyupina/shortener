@@ -8,11 +8,15 @@ import (
 	"github.com/9ssi7/nanoid"
 )
 
+// ErrDuplicateURL - error when the original URL already exists in the system.
 var ErrDuplicateURL = errors.New("duplicate URL")
 
+// Repository - interface for working with shortened URLs.
 type Repository interface {
 	GetShortURL_db(originalURL string) (string, error)
 }
+
+// Repo - structure for interacting with the data storage.
 type Repo struct {
 }
 
@@ -21,6 +25,8 @@ INSERT INTO urls (user_id, short_url, original_url) VALUES ($1, $2, $3)
 ON CONFLICT (original_url) DO NOTHING
 RETURNING short_url`
 
+// GetShortURLDB returns the shortened URL for the given original URL and user ID.
+// If the URL already exists, it returns the existing shortened URL with the error ErrDuplicateURL.
 func (s *Repo) GetShortURLDB(userID, originalURL string, db *sql.DB) (string, error) {
 	var shortURL string
 	var retErr error
@@ -46,6 +52,7 @@ func (s *Repo) GetShortURLDB(userID, originalURL string, db *sql.DB) (string, er
 	return shortURL, retErr
 }
 
+// GenerateShortID generates a unique identifier for a shortened URL.
 func GenerateShortID() string {
 	id, _ := nanoid.New()
 	return id

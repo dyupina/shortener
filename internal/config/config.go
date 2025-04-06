@@ -1,3 +1,4 @@
+// Package config is used to configure the application settings.
 package config
 
 import (
@@ -5,15 +6,23 @@ import (
 	"os"
 )
 
+// Config - application configuration structure.
 type Config struct {
-	Addr           string
-	BaseURL        string
-	Timeout        int
+	// Addr: string with the address on which the server will run (e.g., "localhost:8080").
+	Addr string
+	// BaseURL: base URL of the application used to create shortened links.
+	BaseURL string
+	// Timeout: integer value representing the request processing timeout in seconds.
+	Timeout int
+	// URLStorageFile: path to the file used for storing URLs.
 	URLStorageFile string
-	DBConnection   string
-	NumWorkers     int
+	// DBConnection: database connection string.
+	DBConnection string
+	// NumWorkers: number of worker threads used by the application for task processing.
+	NumWorkers int
 }
 
+// NewConfig creates and returns a new instance of the Config structure with predefined values.
 func NewConfig() *Config {
 	return &Config{
 		Addr:           "localhost:8080",
@@ -25,6 +34,7 @@ func NewConfig() *Config {
 	}
 }
 
+// Init initializes the application configuration using environment variables and command-line flags.
 func Init(c *Config) {
 	if val, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
 		c.Addr = val
