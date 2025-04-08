@@ -35,7 +35,12 @@ func ExampleController_ShortenURL() {
 	handler.ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	defer resp.Body.Close()
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			sugarLogger.Errorf("resp.Body.Close() error")
+		}
+	}()
 
 	fmt.Println("Status Code:", resp.Status)
 	tmp := "http://localhost:8080/rbgJyF62IM"
@@ -66,7 +71,11 @@ func ExampleController_APIGetUserURLs() {
 	handler.ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			sugarLogger.Errorf("resp.Body.Close() error")
+		}
+	}()
 
 	fmt.Println("Status Code:", resp.Status)
 	tmp := "[{\"short_url\":\"http://localhost/abc123\",\"original_url\":\"http://ExampleController_.com\"}]"
@@ -94,7 +103,11 @@ func ExampleController_PingHandler() {
 	handler.ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			sugarLogger.Errorf("resp.Body.Close() error")
+		}
+	}()
 	fmt.Println("Status Code:", resp.Status)
 
 	// Output:
@@ -122,7 +135,11 @@ func ExampleController_GetOriginalURL() {
 	handler.ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			sugarLogger.Errorf("resp.Body.Close() error")
+		}
+	}()
 
 	fmt.Println("Status Code:", resp.Status)
 	fmt.Println("Location Header:", rr.Header().Get("Location"))
@@ -149,7 +166,11 @@ func ExampleController_APIShortenURL() {
 	handler.ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			sugarLogger.Errorf("resp.Body.Close() error")
+		}
+	}()
 	responseBody, _ := io.ReadAll(resp.Body)
 
 	fmt.Println("Status Code:", resp.Status)
@@ -180,7 +201,11 @@ func ExampleController_APIShortenBatchURL() {
 	handler.ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			sugarLogger.Errorf("resp.Body.Close() error")
+		}
+	}()
 	responseBody, _ := io.ReadAll(resp.Body)
 
 	fmt.Println("Status Code:", resp.Status)
@@ -209,7 +234,11 @@ func ExampleController_DeleteUserURLs() {
 	handler.ServeHTTP(rr, req)
 
 	resp := rr.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			sugarLogger.Errorf("resp.Body.Close() error")
+		}
+	}()
 
 	fmt.Println("Status Code:", resp.Status)
 

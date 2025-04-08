@@ -1,0 +1,21 @@
+name: staticlint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master 
+
+jobs: 
+  staticlint:
+    name: Run Static Analyzer
+    runs-on: ubuntu-latest
+    container: golang:1.23
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build staticlint
+        run: go build -o cmd/staticlint/staticlint cmd/staticlint/staticlint.go
+      - name: Run staticlint 
+        run: cmd/staticlint/staticlint ./...

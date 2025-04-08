@@ -1,3 +1,4 @@
+// Package models provides structure for storing URL information in JSON format.
 package models
 
 // StorageJSON - structure for storing URL information in JSON format.

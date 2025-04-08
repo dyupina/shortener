@@ -65,7 +65,11 @@ func BenchmarkGetOriginalURL(b *testing.B) {
 	handler := controller.ShortenURL()
 	handler.ServeHTTP(w, r)
 	res1 := w.Result()
-	defer res1.Body.Close()
+	defer func() {
+		if err := res1.Body.Close(); err != nil {
+			controller.sugar.Errorf("res1.Body.Close() error")
+		}
+	}()
 	shortURLfromServer, _ := io.ReadAll(res1.Body)
 
 	r2 := httptest.NewRequest("GET", string(shortURLfromServer), nil)
@@ -165,7 +169,11 @@ func BenchmarkDeleteUserURLs(b *testing.B) {
 	handler.ServeHTTP(w, r)
 
 	res1 := w.Result()
-	defer res1.Body.Close()
+	defer func() {
+		if err := res1.Body.Close(); err != nil {
+			controller.sugar.Errorf("res1.Body.Close() error")
+		}
+	}()
 	resp, _ := io.ReadAll(res1.Body)
 	var batchResp []batchResponseEntity
 	err := json.Unmarshal(resp, &batchResp)

@@ -12,12 +12,12 @@ type Config struct {
 	Addr string
 	// BaseURL: base URL of the application used to create shortened links.
 	BaseURL string
-	// Timeout: integer value representing the request processing timeout in seconds.
-	Timeout int
 	// URLStorageFile: path to the file used for storing URLs.
 	URLStorageFile string
 	// DBConnection: database connection string.
 	DBConnection string
+	// Timeout: integer value representing the request processing timeout in seconds.
+	Timeout int
 	// NumWorkers: number of worker threads used by the application for task processing.
 	NumWorkers int
 }

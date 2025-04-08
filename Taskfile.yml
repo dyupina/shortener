@@ -59,8 +59,20 @@ tasks:
       cmds:
         - golangci-lint run --config .golangci.yml
       silent: true
+  sast:
+    desc: Run static analysis
+    cmds:
+      - go build -o cmd/staticlint/staticlint cmd/staticlint/staticlint.go 
+      - cmd/staticlint/staticlint ./...
+      # - cmd/staticlint/staticlint help
+  test:
+    desc: Run tests with coverage
+    cmds:
+      - mkdir -p coverage
+      - go test -coverprofile=coverage/coverage.out ./...
+      - go tool cover -func=coverage/coverage.out
   all:
     desc: Run linters and execute app
     cmds:
       - go run cmd/shortener/main.go
-    deps: [lint]
+    deps: [lint, sast]

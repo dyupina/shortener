@@ -1,3 +1,4 @@
+// Package logger provides utilities for creating and managing loggers.
 package logger
 
 import (
