@@ -72,7 +72,7 @@ tasks:
       - go test -coverprofile=coverage/coverage.out ./...
       - go tool cover -func=coverage/coverage.out
   all:
-    desc: Run linters and execute app
+    desc: Execute app
     cmds:
-      - go run cmd/shortener/main.go
+      - go run -ldflags "-X main.buildVersion=v1.0.1 -X 'main.buildDate=$(date +'%Y/%m/%d')' -X main.buildCommit=$(git rev-parse HEAD)" cmd/shortener/main.go 
     deps: [lint, sast]

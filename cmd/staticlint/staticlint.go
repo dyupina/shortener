@@ -29,7 +29,7 @@
 //	atomic - atomic defines an Analyzer that checks for common mistakes using the sync/atomic package.
 //	atomicalign - atomicalign defines an Analyzer that checks for non-64-bit-aligned arguments to sync/atomic functions.
 //	bools - bools defines an Analyzer that detects common mistakes involving boolean operators.
-//	buildssa - buildssa defines an Analyzer that constructs the SSA representation of an error-free package and returns the set of all functions within it.
+//	buildssa defines an Analyzer that creates SSA representation of an error-free package and returns all functions within it.
 //	buildtag - buildtag defines an Analyzer that checks build tags.
 //	cgocall - cgocall defines an Analyzer that detects some violations of the cgo pointer passing rules.
 //	composite - composite defines an Analyzer that checks for unkeyed composite literals.
@@ -43,12 +43,12 @@
 //	framepointer - framepointer defines an Analyzer that reports assembly code that clobbers the frame pointer before saving it.
 //	httpresponse - httpresponse defines an Analyzer that checks for mistakes using HTTP responses.
 //	ifaceassert - ifaceassert defines an Analyzer that flags impossible interface-interface type assertions.
-//	inspect - inspect defines an Analyzer that provides an AST inspector (golang.org/x/tools/go/ast/inspector.Inspector) for the syntax trees of a package.
+//	inspect - inspect defines an Analyzer that provides an AST inspector for the syntax trees of a package.
 //	loopclosure - loopclosure defines an Analyzer that checks for references to enclosing loop variables from within nested functions.
 //	lostcancel - lostcancel defines an Analyzer that checks for failure to call a context cancellation function.
 //	nilfunc - nilfunc defines an Analyzer that checks for useless comparisons against nil.
 //	printf - printf defines an Analyzer that checks consistency of Printf format strings and arguments.
-//	reflectvaluecompare - reflectvaluecompare defines an Analyzer that checks for accidentally using == or reflect.DeepEqual to compare reflect.Value values.
+//	reflectvaluecompare defines an Analyzer that checks for accidental use of == or reflect.DeepEqual to compare reflect.Value values.
 //	shadow - shadow defines an Analyzer that checks for shadowed variables.
 //	shift - shift defines an Analyzer that checks for shifts that exceed the width of an integer.
 //	sigchanyzer - sigchanyzer defines an Analyzer that detects misuse of unbuffered signal as argument to signal.Notify.

@@ -18,7 +18,7 @@ func TestOsExitCheckAnalyzer(t *testing.T) {
 	analysistest.Run(t, analysistest.TestData()+"/osexit", OsExitCheckAnalyzer, "./...")
 }
 
-func TestAppendChecks(t *testing.T) {
+func TestAppendChecks(_ *testing.T) {
 	checks := map[string]bool{
 		"ST1005": true,
 		"ST1000": true,
@@ -33,10 +33,10 @@ func TestAppendChecks(t *testing.T) {
 	appendChecks(quickfix.Analyzers, checks)
 }
 
-func TestAppendOtherPublicChecks(t *testing.T) {
+func TestAppendOtherPublicChecks(_ *testing.T) {
 	appendOtherPublicChecks()
 }
-func TestAppendStaticcheckIoChecks(t *testing.T) {
+func TestAppendStaticcheckIoChecks(_ *testing.T) {
 	checks := map[string]bool{
 		"ST1005": true,
 		"ST1000": true,
@@ -48,10 +48,10 @@ func TestAppendStaticcheckIoChecks(t *testing.T) {
 	appendStaticcheckIoChecks(checks)
 }
 
-func TestAppendPassesChecks(t *testing.T) {
+func TestAppendPassesChecks(_ *testing.T) {
 	appendPassesChecks()
 }
-func TestAppendCustomOsExitCheck(t *testing.T) {
+func TestAppendCustomOsExitCheck(_ *testing.T) {
 	appendCustomOsExitCheck()
 }
 
