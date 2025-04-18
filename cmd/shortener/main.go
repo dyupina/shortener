@@ -12,7 +12,20 @@ import (
 	_ "net/http/pprof" //nolint:gosec // Use for Iter16
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
+
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
+)
+
+func info(l *zap.SugaredLogger) {
+	l.Infof("Build version: %s", buildVersion)
+	l.Infof("Build date: %s", buildDate)
+	l.Infof("Build commit: %s", buildCommit)
+}
 
 func main() {
 	c := config.NewConfig()
@@ -24,6 +37,7 @@ func main() {
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize logger: %v", err)
 	}
+	info(sugarLogger)
 
 	userService := user.NewUserService()
 	ctrl := handlers.NewController(c, s, sugarLogger, userService)

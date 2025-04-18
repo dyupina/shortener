@@ -27,4 +27,4 @@ internal/storage/shortener_storage
 coverage/
 test.sh
 cookies.txt
-profiles/
+cmd/staticlint/staticlint

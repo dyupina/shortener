@@ -1,3 +1,4 @@
+// Package repository manages URLs in a database.
 package repository
 
 import (

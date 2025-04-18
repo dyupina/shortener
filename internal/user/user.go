@@ -1,3 +1,4 @@
+// Package user provides functions for managing user URLs and cookies.
 package user
 
 import (
@@ -19,8 +20,8 @@ type UserURL struct {
 // user implements the service for handling user URLs, including cookie management and URL storage.
 type user struct {
 	urls       map[string][]UserURL
-	cookieName string
 	cookie     *securecookie.SecureCookie
+	cookieName string
 }
 
 // UserService - interface for managing user URLs and cookies.

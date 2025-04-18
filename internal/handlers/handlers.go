@@ -157,7 +157,11 @@ func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
 				http.Error(res, "Bad Request: Unable to decode gzip body", http.StatusBadRequest)
 				return
 			}
-			defer gz.Close()
+			defer func() {
+				if err := gz.Close(); err != nil {
+					con.sugar.Errorf("gz.Close() error")
+				}
+			}()
 			req.Body = gz
 		}
 		next.ServeHTTP(res, req)
@@ -196,7 +200,11 @@ func (con *Controller) GzipEncodeMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		defer gzip.Close()
+		defer func() {
+			if err := gzip.Close(); err != nil {
+				con.sugar.Errorf("gzip.Close() error")
+			}
+		}()
 
 		res.Header().Set("Content-Encoding", "gzip")
 

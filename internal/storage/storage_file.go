@@ -19,9 +19,9 @@ import (
 // StorageFile - structure for storing URL data in a file.
 type StorageFile struct {
 	urlStorage map[string]string
-	mu         sync.Mutex
 	Events     chan map[string]string
 	file       io.Writer
+	mu         sync.Mutex
 }
 
 // NewStorageFile creates and returns a new instance of StorageFile.
@@ -76,7 +76,7 @@ func (s *StorageFile) GetData(shortID string) (originalURL string, isDeleted boo
 	return originalURL, false, nil
 }
 
-// RestoreURLStorage restores URL data from a backup file.
+// RestoreURLstorage restores URL data from a backup file.
 func RestoreURLstorage(c *config.Config, s *StorageFile) error {
 	file, err := OpenFileAsReader(c)
 	if err != nil {

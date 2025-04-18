@@ -53,8 +53,8 @@ func SelectStorage(c *config.Config) storage.StorageService {
 func TestAPIShortenURL(t *testing.T) {
 	testCases := []struct {
 		method       string
-		expectedCode int
 		data         string
+		expectedCode int
 	}{
 		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example.com"},
 		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example123123.com"},
@@ -76,7 +76,11 @@ func TestAPIShortenURL(t *testing.T) {
 			res := w.Result()
 
 			require.Equal(t, tc.expectedCode, res.StatusCode, "Response code does not match expected")
-			defer res.Body.Close()
+			defer func() {
+				if err := res.Body.Close(); err != nil {
+					controller.sugar.Errorf("res.Body.Close() error")
+				}
+			}()
 		})
 	}
 }
@@ -84,8 +88,8 @@ func TestAPIShortenURL(t *testing.T) {
 func TestShortenURL(t *testing.T) {
 	testCases := []struct {
 		method       string
-		expectedCode int
 		data         string
+		expectedCode int
 	}{
 		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example.com"},
 		{method: http.MethodPost, expectedCode: http.StatusCreated, data: "https://example123123.com"},
@@ -108,7 +112,11 @@ func TestShortenURL(t *testing.T) {
 			res := w.Result()
 
 			require.Equal(t, tc.expectedCode, res.StatusCode, "Response code does not match expected")
-			defer res.Body.Close()
+			defer func() {
+				if err := res.Body.Close(); err != nil {
+					controller.sugar.Errorf("res.Body.Close() error")
+				}
+			}()
 		})
 	}
 }
@@ -130,11 +138,11 @@ func prepare_(t *testing.T) (*mocks.MockStorageService, *mocks.MockUserService, 
 
 func TestGetOriginalURL(t *testing.T) {
 	tests := []struct {
+		mockSetup        func(storSrv *mocks.MockStorageService, controller *Controller)
 		name             string
 		requestPath      string
-		mockSetup        func(storSrv *mocks.MockStorageService, controller *Controller)
-		expectedStatus   int
 		expectedLocation string
+		expectedStatus   int
 	}{
 		{
 			name:        "GetOriginalURL ok",
@@ -185,15 +193,17 @@ func TestGetOriginalURL(t *testing.T) {
 				assert.Equal(t, tt.expectedLocation, location.String())
 			}
 
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				controller.sugar.Errorf("resp.Body.Close() error")
+			}
 		})
 	}
 }
 func TestDeleteUserURLs(t *testing.T) {
 	tests := []struct {
+		mockSetup      func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request)
 		name           string
 		requestBody    string
-		mockSetup      func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request)
 		expectedStatus int
 	}{
 		{
@@ -242,15 +252,17 @@ func TestDeleteUserURLs(t *testing.T) {
 
 			resp := w.Result()
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				controller.sugar.Errorf("resp.Body.Close() error")
+			}
 		})
 	}
 }
 
 func TestAPIGetUserURLs(t *testing.T) {
 	tests := []struct {
-		name           string
 		mockSetup      func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request)
+		name           string
 		expectedStatus int
 	}{
 		{
@@ -312,18 +324,20 @@ func TestAPIGetUserURLs(t *testing.T) {
 
 			resp := w.Result()
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				controller.sugar.Errorf("resp.Body.Close() error")
+			}
 		})
 	}
 }
 
 func TestAPIShortenBatchURL(t *testing.T) {
 	tests := []struct {
-		name           string
-		requestBody    interface{}
 		mockSetup      func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller)
-		expectedStatus int
+		requestBody    interface{}
+		name           string
 		expectedBody   []batchResponseEntity
+		expectedStatus int
 	}{
 		{
 			name: "APIShortenBatchURL ok",
@@ -392,15 +406,17 @@ func TestAPIShortenBatchURL(t *testing.T) {
 				assert.Equal(t, tt.expectedBody, responseBody)
 			}
 
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				controller.sugar.Errorf("resp.Body.Close() error")
+			}
 		})
 	}
 }
 
 func TestPingHandler(t *testing.T) {
 	tests := []struct {
-		name           string
 		mockSetup      func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller)
+		name           string
 		expectedStatus int
 	}{
 		{
@@ -431,7 +447,9 @@ func TestPingHandler(t *testing.T) {
 
 			resp := w.Result()
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				controller.sugar.Errorf("resp.Body.Close() error")
+			}
 		})
 	}
 }
