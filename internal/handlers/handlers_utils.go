@@ -1,11 +1,16 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
 	"regexp"
 	"sync"
+	"syscall"
+	"time"
 )
 
 var shorturl struct {
@@ -173,4 +178,38 @@ func collectDeletionResults(channels ...chan string) chan string {
 	}()
 
 	return finalCh
+}
+
+// HandleGracefulShutdown handles termination signals.
+func (con *Controller) HandleGracefulShutdown(server *http.Server) {
+	numSigs := 4
+	sigs := make(chan os.Signal, numSigs)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
+	// Ждем получения первого сигнала
+	sig := <-sigs
+	con.sugar.Infof("Received signal: %v", sig)
+
+	// Отключаем прием новых подключений и дожидаемся завершения активных запросов
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(con.conf.Timeout)*time.Second)
+	defer cancel()
+
+	// con.storageService.
+
+	// Закрываем соединение с базой данных.
+	go func() {
+		if con.conf.DBConnection != "" {
+			con.sugar.Infof("Closing database connection...")
+			if err := con.storageService.Close(); err != nil {
+				con.sugar.Errorf("Failed to close database connection: %v", err)
+			}
+		}
+	}()
+
+	con.sugar.Infof("Shutting down gracefully...")
+	if err := server.Shutdown(ctx); err != nil {
+		con.sugar.Infof("HTTP server shutdown error: %v", err)
+	}
+
+	con.sugar.Infof("Server has been shut down.")
 }

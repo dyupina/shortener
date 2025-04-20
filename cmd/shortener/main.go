@@ -1,14 +1,13 @@
 package main
 
 import (
-	"net/http"
-
 	"shortener/internal/app"
 	"shortener/internal/config"
 	"shortener/internal/handlers"
 	"shortener/internal/logger"
 	"shortener/internal/user"
 
+	"net/http"
 	_ "net/http/pprof" //nolint:gosec // Use for Iter16
 
 	"github.com/go-chi/chi/v5"
@@ -50,18 +49,19 @@ func main() {
 	app.InitMiddleware(r, c, ctrl)
 	app.Routing(r, ctrl)
 
-	if c.EnableHTTPS {
-		httpsAddr := "localhost:8443"
-		c.Addr = httpsAddr
-		c.BaseURL = "https://" + httpsAddr
-		sugarLogger.Infof("Shortener at %s\n", c.Addr)
-		err = http.ListenAndServeTLS(httpsAddr, "https/localhost.crt", "https/localhost.key", r) //nolint:gosec // Use chi Timeout (see above)
-	} else {
-		sugarLogger.Infof("Shortener at %s\n", c.Addr)
-		err = http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
-	}
+	server := app.CreateServer(c, r, sugarLogger)
 
-	if err != nil {
-		sugarLogger.Fatalf("Failed to start server: %v", err)
-	}
+	go func() {
+		if c.EnableHTTPS {
+			err = server.ListenAndServeTLS("https/localhost.crt", "https/localhost.key")
+		} else {
+			err = server.ListenAndServe()
+		}
+
+		if err != nil && err != http.ErrServerClosed {
+			sugarLogger.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	ctrl.HandleGracefulShutdown(server)
 }

@@ -7,13 +7,11 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/signal"
 	"shortener/internal/config"
 	"shortener/internal/domain/models"
 	"shortener/internal/repository"
 	"strconv"
 	"sync"
-	"syscall"
 )
 
 // StorageFile - structure for storing URL data in a file.
@@ -84,15 +82,6 @@ func RestoreURLstorage(c *config.Config, s *StorageFile) error {
 	}
 	defer ReadWriteCloserClose(file)
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		fmt.Printf("Shutting down server and closing file...")
-		ReadWriteCloserClose(file)
-		os.Exit(0)
-	}()
-
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -159,6 +148,11 @@ func BackupURLs(s *StorageFile, newMap map[string]string, counter int) {
 
 // Ping checks the connection to the database. Not used in this case.
 func (s *StorageFile) Ping() error {
+	return nil
+}
+
+// Close closes db connection. Not used in this case.
+func (s *StorageFile) Close() error {
 	return nil
 }
 

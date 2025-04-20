@@ -2,8 +2,12 @@ package app
 
 import (
 	"log"
+	"net/http"
 	"shortener/internal/config"
 	"shortener/internal/storage"
+	"time"
+
+	"go.uber.org/zap"
 )
 
 // SelectStorage - selects the storage for saving URLs: database, file, or memory.
@@ -34,4 +38,23 @@ func SelectStorage(c *config.Config) storage.StorageService {
 	s := storage.NewStorageMemory()
 
 	return s
+}
+
+// CreateServer creates and configures an HTTP server.
+func CreateServer(c *config.Config, handler http.Handler, logger *zap.SugaredLogger) *http.Server {
+	addr := c.Addr
+	if c.EnableHTTPS {
+		addr = "localhost:8443"
+		c.Addr = addr
+		c.BaseURL = "https://" + addr
+		logger.Infof("Shortener at %s\n", c.Addr)
+	} else {
+		logger.Infof("Shortener at %s\n", c.Addr)
+	}
+
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 20 * time.Second,
+	}
 }

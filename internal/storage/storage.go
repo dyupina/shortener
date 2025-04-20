@@ -14,6 +14,8 @@ type StorageService interface {
 	GetData(shortID string) (originalURL string, isDeleted bool, err error)
 	// Ping checks the connection to the database, if one is used.
 	Ping() error
+	// Close closes db connection.
+	Close() error
 	// BatchDeleteURLs marks URLs as deleted in the database for a given user,
 	// if a database is used.
 	BatchDeleteURLs(userID string, urlIDs []string) error
