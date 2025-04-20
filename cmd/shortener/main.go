@@ -46,7 +46,17 @@ func main() {
 	app.InitMiddleware(r, c, ctrl)
 	app.Routing(r, ctrl)
 
-	err = http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
+	if c.EnableHTTPS {
+		httpsAddr := "localhost:8443"
+		c.Addr = httpsAddr
+		c.BaseURL = "https://" + httpsAddr
+		sugarLogger.Infof("Shortener at %s\n", c.Addr)
+		err = http.ListenAndServeTLS(httpsAddr, "https/localhost.crt", "https/localhost.key", r) //nolint:gosec // Use chi Timeout (see above)
+	} else {
+		sugarLogger.Infof("Shortener at %s\n", c.Addr)
+		err = http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
+	}
+
 	if err != nil {
 		sugarLogger.Fatalf("Failed to start server: %v", err)
 	}

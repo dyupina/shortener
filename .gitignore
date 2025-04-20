@@ -28,3 +28,4 @@ coverage/
 test.sh
 cookies.txt
 cmd/staticlint/staticlint
+https/

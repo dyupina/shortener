@@ -171,49 +171,49 @@ func appendChecks(analyzers []*lint.Analyzer, checks map[string]bool) {
 
 // appendPassesChecks adds standard Go analysis passes to the list of analyzers.
 func appendPassesChecks() {
-	mychecks = append(mychecks, appends.Analyzer)
-	mychecks = append(mychecks, asmdecl.Analyzer)
-	mychecks = append(mychecks, assign.Analyzer)
-	mychecks = append(mychecks, atomic.Analyzer)
-	mychecks = append(mychecks, atomicalign.Analyzer)
-	mychecks = append(mychecks, bools.Analyzer)
-	mychecks = append(mychecks, buildssa.Analyzer)
-	mychecks = append(mychecks, buildtag.Analyzer)
-	mychecks = append(mychecks, cgocall.Analyzer)
-	mychecks = append(mychecks, composite.Analyzer)
-	mychecks = append(mychecks, copylock.Analyzer)
-	mychecks = append(mychecks, deepequalerrors.Analyzer)
-	mychecks = append(mychecks, defers.Analyzer)
-	mychecks = append(mychecks, directive.Analyzer)
-	mychecks = append(mychecks, errorsas.Analyzer)
-	mychecks = append(mychecks, fieldalignment.Analyzer)
-	mychecks = append(mychecks, findcall.Analyzer)
-	mychecks = append(mychecks, framepointer.Analyzer)
-	mychecks = append(mychecks, httpresponse.Analyzer)
-	mychecks = append(mychecks, ifaceassert.Analyzer)
-	mychecks = append(mychecks, inspect.Analyzer)
-	mychecks = append(mychecks, loopclosure.Analyzer)
-	mychecks = append(mychecks, lostcancel.Analyzer)
-	mychecks = append(mychecks, nilfunc.Analyzer)
-	mychecks = append(mychecks, printf.Analyzer)
-	mychecks = append(mychecks, reflectvaluecompare.Analyzer)
-	mychecks = append(mychecks, shadow.Analyzer)
-	mychecks = append(mychecks, shift.Analyzer)
-	mychecks = append(mychecks, sigchanyzer.Analyzer)
-	mychecks = append(mychecks, slog.Analyzer)
-	mychecks = append(mychecks, sortslice.Analyzer)
-	mychecks = append(mychecks, stdmethods.Analyzer)
-	mychecks = append(mychecks, stringintconv.Analyzer)
-	mychecks = append(mychecks, structtag.Analyzer)
-	mychecks = append(mychecks, testinggoroutine.Analyzer)
-	mychecks = append(mychecks, tests.Analyzer)
-	mychecks = append(mychecks, timeformat.Analyzer)
-	mychecks = append(mychecks, unmarshal.Analyzer)
-	mychecks = append(mychecks, unreachable.Analyzer)
-	mychecks = append(mychecks, unsafeptr.Analyzer)
-	mychecks = append(mychecks, unusedresult.Analyzer)
-	mychecks = append(mychecks, usesgenerics.Analyzer)
-	mychecks = append(mychecks, waitgroup.Analyzer)
+	mychecks = []*analysis.Analyzer{appends.Analyzer,
+		asmdecl.Analyzer,
+		assign.Analyzer,
+		atomic.Analyzer,
+		atomicalign.Analyzer,
+		bools.Analyzer,
+		buildssa.Analyzer,
+		buildtag.Analyzer,
+		cgocall.Analyzer,
+		composite.Analyzer,
+		copylock.Analyzer,
+		deepequalerrors.Analyzer,
+		defers.Analyzer,
+		directive.Analyzer,
+		errorsas.Analyzer,
+		fieldalignment.Analyzer,
+		findcall.Analyzer,
+		framepointer.Analyzer,
+		httpresponse.Analyzer,
+		ifaceassert.Analyzer,
+		inspect.Analyzer,
+		loopclosure.Analyzer,
+		lostcancel.Analyzer,
+		nilfunc.Analyzer,
+		printf.Analyzer,
+		reflectvaluecompare.Analyzer,
+		shadow.Analyzer,
+		shift.Analyzer,
+		sigchanyzer.Analyzer,
+		slog.Analyzer,
+		sortslice.Analyzer,
+		stdmethods.Analyzer,
+		stringintconv.Analyzer,
+		structtag.Analyzer,
+		testinggoroutine.Analyzer,
+		tests.Analyzer,
+		timeformat.Analyzer,
+		unmarshal.Analyzer,
+		unreachable.Analyzer,
+		unsafeptr.Analyzer,
+		unusedresult.Analyzer,
+		usesgenerics.Analyzer,
+		waitgroup.Analyzer}
 }
 
 // appendStaticcheckIoChecks adds analyzers from staticcheck.io (which in config.json) to the list.
@@ -245,23 +245,30 @@ var OsExitCheckAnalyzer = &analysis.Analyzer{
 // run implements OsExitCheckAnalyzer.
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
-		if !strings.Contains(pass.Fset.Position(file.Package).Filename, ".cache") && pass.Pkg.Name() == "main" {
-			for _, decl := range file.Decls {
-				if f, ok := decl.(*ast.FuncDecl); ok {
-					if f.Name.Name == "main" {
-						ast.Inspect(f, func(node ast.Node) bool {
-							if callExpr, ok := node.(*ast.CallExpr); ok {
-								if selExpr, ok := callExpr.Fun.(*ast.SelectorExpr); ok {
-									if ident, ok := selExpr.X.(*ast.Ident); ok && ident.Name == "os" && selExpr.Sel.Name == "Exit" {
-										pass.Reportf(callExpr.Pos(), "osexitcheck os.Exit cannot be called in main function of main package")
-									}
-								}
-							}
-							return true
-						})
+		if pass.Pkg.Name() != "main" || strings.Contains(pass.Fset.Position(file.Package).Filename, ".cache") {
+			return nil, nil
+		}
+
+		for _, decl := range file.Decls {
+			f, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+
+			if f.Name.Name != "main" {
+				continue
+			}
+
+			ast.Inspect(f, func(node ast.Node) bool {
+				if callExpr, ok := node.(*ast.CallExpr); ok {
+					if selExpr, ok := callExpr.Fun.(*ast.SelectorExpr); ok {
+						if ident, ok := selExpr.X.(*ast.Ident); ok && ident.Name == "os" && selExpr.Sel.Name == "Exit" {
+							pass.Reportf(callExpr.Pos(), "osexitcheck os.Exit cannot be called in main function of main package")
+						}
 					}
 				}
-			}
+				return true
+			})
 		}
 	}
 	return nil, nil

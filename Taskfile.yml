@@ -74,5 +74,6 @@ tasks:
   all:
     desc: Execute app
     cmds:
-      - go run -ldflags "-X main.buildVersion=v1.0.1 -X 'main.buildDate=$(date +'%Y/%m/%d')' -X main.buildCommit=$(git rev-parse HEAD)" cmd/shortener/main.go 
+      - go build -o cmd/shortener/main -ldflags "-X main.buildVersion=v1.0.1 -X 'main.buildDate=$(date +'%Y/%m/%d')' -X main.buildCommit=$(git rev-parse HEAD)" cmd/shortener/main.go
+      - sudo ./cmd/shortener/main
     deps: [lint, sast]
