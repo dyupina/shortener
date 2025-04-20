@@ -53,8 +53,9 @@ func TestInitWithEnvVariables(t *testing.T) {
 	}()
 
 	config := NewConfig()
-	Init(config)
+	err := Init(config)
 
+	require.NoError(t, err)
 	require.Equal(t, "localhost:9090", config.Addr)
 	require.Equal(t, "http://localhost:9090", config.BaseURL)
 	require.Equal(t, "/tmp/data", config.URLStorageFile)
@@ -75,7 +76,8 @@ func TestInitWithFlags(t *testing.T) {
 
 	config := NewConfig()
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	Init(config)
+	err := Init(config)
+	require.NoError(t, err)
 
 	require.Equal(t, "127.0.0.1:8081", config.Addr)
 	require.Equal(t, "http://127.0.0.1:8081", config.BaseURL)

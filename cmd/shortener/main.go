@@ -28,15 +28,19 @@ func info(l *zap.SugaredLogger) {
 }
 
 func main() {
-	c := config.NewConfig()
-	config.Init(c)
-
-	s := app.SelectStorage(c)
-
 	sugarLogger, err := logger.NewLogger()
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize logger: %v", err)
 	}
+
+	c := config.NewConfig()
+	err = config.Init(c)
+	if err != nil {
+		sugarLogger.Fatalf("Failed to initialize config: %v", err)
+	}
+
+	s := app.SelectStorage(c)
+
 	info(sugarLogger)
 
 	userService := user.NewUserService()
