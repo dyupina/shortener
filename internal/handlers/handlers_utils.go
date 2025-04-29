@@ -182,19 +182,16 @@ func collectDeletionResults(channels ...chan string) chan string {
 
 // HandleGracefulShutdown handles termination signals.
 func (con *Controller) HandleGracefulShutdown(server *http.Server) {
-	numSigs := 4
-	sigs := make(chan os.Signal, numSigs)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	notifyCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	defer stop()
 
 	// Ждем получения первого сигнала
-	sig := <-sigs
-	con.sugar.Infof("Received signal: %v", sig)
+	<-notifyCtx.Done()
+	con.sugar.Infof("Received shutdown signal")
 
 	// Отключаем прием новых подключений и дожидаемся завершения активных запросов
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(con.conf.Timeout)*time.Second)
 	defer cancel()
-
-	// con.storageService.
 
 	// Закрываем соединение с базой данных.
 	go func() {

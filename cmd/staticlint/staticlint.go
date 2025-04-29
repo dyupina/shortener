@@ -251,22 +251,27 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 		for _, decl := range file.Decls {
 			f, ok := decl.(*ast.FuncDecl)
-			if !ok {
-				continue
-			}
-
-			if f.Name.Name != "main" {
+			if !ok || f.Name.Name != "main" {
 				continue
 			}
 
 			ast.Inspect(f, func(node ast.Node) bool {
-				if callExpr, ok := node.(*ast.CallExpr); ok {
-					if selExpr, ok := callExpr.Fun.(*ast.SelectorExpr); ok {
-						if ident, ok := selExpr.X.(*ast.Ident); ok && ident.Name == "os" && selExpr.Sel.Name == "Exit" {
-							pass.Reportf(callExpr.Pos(), "osexitcheck os.Exit cannot be called in main function of main package")
-						}
-					}
+				callExpr, ok := node.(*ast.CallExpr)
+				if !ok {
+					return true
 				}
+
+				selExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+
+				ident, ok := selExpr.X.(*ast.Ident)
+				if !ok || ident.Name != "os" || selExpr.Sel.Name != "Exit" {
+					return true
+				}
+
+				pass.Reportf(callExpr.Pos(), "osexitcheck os.Exit cannot be called in main function of main package")
 				return true
 			})
 		}
