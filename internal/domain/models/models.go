@@ -10,3 +10,11 @@ type StorageJSON struct {
 	// OriginalURL: original URL that corresponds to the shortened version.
 	OriginalURL string `json:"original_url"`
 }
+
+// StatsResponse represents the response for the /api/internal/stats endpoint.
+type StatsResponse struct {
+	// URLs: number of shortened URLs
+	URLs int `json:"urls"`
+	// Users: number of users
+	Users int `json:"users"`
+}

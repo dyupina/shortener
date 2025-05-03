@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"shortener/internal/config"
+	"shortener/internal/domain/models"
 	"shortener/internal/repository"
 	"shortener/internal/storage"
 	"shortener/internal/user"
@@ -121,6 +122,11 @@ func (con *Controller) APIGetUserURLs() http.HandlerFunc {
 // Sets a new user ID if the cookies are missing or invalid.
 func (con *Controller) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/api/internal/stats" {
+			next.ServeHTTP(res, req)
+			return
+		}
+
 		uidFromCookie, err := con.userService.GetUserIDFromCookie(req)
 
 		if err != nil || uidFromCookie == "" {
@@ -473,5 +479,48 @@ func (con *Controller) PingHandler() http.HandlerFunc {
 
 		res.WriteHeader(http.StatusOK)
 		con.sugar.Info("connected to the database successfully")
+	}
+}
+
+// Statistics returns the number of users and the number of shortened URLs in the service.
+//
+// HTTP Responses:
+//   - 403 Forbidden: if the client's IP address is not in a trusted subnet.
+func (con *Controller) Statistics() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		trustedSubnet := con.conf.TrustedSubnet
+		if trustedSubnet == "" {
+			con.sugar.Debugf("Access Denied (empty trusted_subnet)")
+			http.Error(res, "Access Denied (empty trusted_subnet)", http.StatusForbidden)
+			return
+		}
+
+		clientIP := req.Header.Get("X-Real-IP")
+		if clientIP == "" {
+			clientIP = strings.Split(req.RemoteAddr, ":")[0]
+		}
+
+		if !con.isIPInSubnet(clientIP, trustedSubnet) {
+			con.sugar.Debugf("Access Denied (IP not in specified subnet)")
+			http.Error(res, "Access Denied (IP not in specified subnet)", http.StatusForbidden)
+			return
+		}
+
+		stats := models.StatsResponse{
+			URLs:  con.userService.GetURLsCount(),
+			Users: con.userService.GetUserNumber(),
+		}
+		resp, err := json.Marshal(stats)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		_, err = res.Write(resp)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
 	}
 }

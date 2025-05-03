@@ -31,6 +31,7 @@ func InitMiddleware(r *chi.Mux, conf *config.Config, ctrl *handlers.Controller) 
 //   - GET "/ping": service availability check through ctrl.PingHandler().
 //   - GET "/api/user/urls": retrieves the user's URL list through ctrl.APIGetUserURLs().
 //   - DELETE "/api/user/urls": deletes the user's URL list using ctrl.DeleteUserURLs().
+//   - GET "/api/internal/stats": returns the some statistics of service using ctrl.Statistics().
 func Routing(r *chi.Mux, ctrl *handlers.Controller) {
 	r.Post("/", ctrl.ShortenURL())
 	r.Get("/{id}", ctrl.GetOriginalURL())
@@ -39,4 +40,5 @@ func Routing(r *chi.Mux, ctrl *handlers.Controller) {
 	r.Get("/ping", ctrl.PingHandler())
 	r.Get("/api/user/urls", ctrl.APIGetUserURLs())
 	r.Delete("/api/user/urls", ctrl.DeleteUserURLs())
+	r.Get("/api/internal/stats", ctrl.Statistics())
 }
