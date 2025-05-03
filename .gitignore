@@ -28,3 +28,5 @@ coverage/
 test.sh
 cookies.txt
 cmd/staticlint/staticlint
+https/
+shortener_config.json

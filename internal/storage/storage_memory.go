@@ -58,6 +58,11 @@ func (s *StorageMemory) Ping() error {
 	return nil
 }
 
+// Close closes db connection. Not used in this case.
+func (s *StorageMemory) Close() error {
+	return nil
+}
+
 // BatchDeleteURLs marks URLs as deleted in the database for a specified user.
 // Not used in this context.
 func (s *StorageMemory) BatchDeleteURLs(userID string, urlIDs []string) error {

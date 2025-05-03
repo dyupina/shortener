@@ -77,3 +77,8 @@ func (s *StorageDB) BatchDeleteURLs(userID string, urlIDs []string) error {
 
 	return err
 }
+
+// Close closes db connection.
+func (s *StorageDB) Close() error {
+	return s.DBConn.Close()
+}

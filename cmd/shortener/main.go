@@ -1,14 +1,13 @@
 package main
 
 import (
-	"net/http"
-
 	"shortener/internal/app"
 	"shortener/internal/config"
 	"shortener/internal/handlers"
 	"shortener/internal/logger"
 	"shortener/internal/user"
 
+	"net/http"
 	_ "net/http/pprof" //nolint:gosec // Use for Iter16
 
 	"github.com/go-chi/chi/v5"
@@ -28,15 +27,19 @@ func info(l *zap.SugaredLogger) {
 }
 
 func main() {
-	c := config.NewConfig()
-	config.Init(c)
-
-	s := app.SelectStorage(c)
-
 	sugarLogger, err := logger.NewLogger()
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize logger: %v", err)
 	}
+
+	c := config.NewConfig()
+	err = config.Init(c)
+	if err != nil {
+		sugarLogger.Fatalf("Failed to initialize config: %v", err)
+	}
+
+	s := app.SelectStorage(c)
+
 	info(sugarLogger)
 
 	userService := user.NewUserService()
@@ -46,8 +49,19 @@ func main() {
 	app.InitMiddleware(r, c, ctrl)
 	app.Routing(r, ctrl)
 
-	err = http.ListenAndServe(c.Addr, r) //nolint:gosec // Use chi Timeout (see above)
-	if err != nil {
-		sugarLogger.Fatalf("Failed to start server: %v", err)
-	}
+	server := app.CreateServer(c, r, sugarLogger)
+
+	go func() {
+		if c.EnableHTTPS {
+			err = server.ListenAndServeTLS("https/localhost.crt", "https/localhost.key")
+		} else {
+			err = server.ListenAndServe()
+		}
+
+		if err != nil && err != http.ErrServerClosed {
+			sugarLogger.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	ctrl.HandleGracefulShutdown(server)
 }
