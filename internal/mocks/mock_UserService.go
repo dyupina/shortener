@@ -47,6 +47,20 @@ func (mr *MockUserServiceMockRecorder) AddURLs(arg0, arg1, arg2, arg3 interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddURLs", reflect.TypeOf((*MockUserService)(nil).AddURLs), arg0, arg1, arg2, arg3)
 }
 
+// GetURLsCount mocks base method.
+func (m *MockUserService) GetURLsCount() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetURLsCount")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GetURLsCount indicates an expected call of GetURLsCount.
+func (mr *MockUserServiceMockRecorder) GetURLsCount() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetURLsCount", reflect.TypeOf((*MockUserService)(nil).GetURLsCount))
+}
+
 // GetUserIDFromCookie mocks base method.
 func (m *MockUserService) GetUserIDFromCookie(arg0 *http.Request) (string, error) {
 	m.ctrl.T.Helper()
@@ -60,6 +74,20 @@ func (m *MockUserService) GetUserIDFromCookie(arg0 *http.Request) (string, error
 func (mr *MockUserServiceMockRecorder) GetUserIDFromCookie(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserIDFromCookie", reflect.TypeOf((*MockUserService)(nil).GetUserIDFromCookie), arg0)
+}
+
+// GetUserNumber mocks base method.
+func (m *MockUserService) GetUserNumber() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserNumber")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GetUserNumber indicates an expected call of GetUserNumber.
+func (mr *MockUserServiceMockRecorder) GetUserNumber() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserNumber", reflect.TypeOf((*MockUserService)(nil).GetUserNumber))
 }
 
 // GetUserURLs mocks base method.

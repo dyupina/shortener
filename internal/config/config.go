@@ -21,6 +21,8 @@ type Config struct {
 	DBConnection string `json:"database_dsn"`
 	// ConfigPath: path to configuration file.
 	ConfigPath string
+	// TrustedSubnet: Classless Inter-Domain Routing (CIDR)
+	TrustedSubnet string `json:"trusted_subnet"`
 	// Timeout: integer value representing the request processing timeout in seconds.
 	Timeout int
 	// NumWorkers: number of worker threads used by the application for task processing.
@@ -38,6 +40,7 @@ var cfgDefault = Config{
 	NumWorkers:     15,
 	EnableHTTPS:    false,
 	ConfigPath:     "",
+	TrustedSubnet:  "",
 }
 
 // NewConfig creates and returns a new instance of the Config structure with predefined values.
@@ -51,8 +54,7 @@ var ErrReadConfig = errors.New("reading json config")
 // ErrParseConfig - error parsing json config.
 var ErrParseConfig = errors.New("parse json config")
 
-// Init initializes the application configuration using environment variables and command-line flags.
-func Init(c *Config) error {
+func parseEnv(c *Config) {
 	if val, exist := os.LookupEnv("SERVER_ADDRESS"); exist {
 		c.Addr = val
 	}
@@ -71,6 +73,14 @@ func Init(c *Config) error {
 			c.EnableHTTPS = valBool
 		}
 	}
+	if val, exist := os.LookupEnv("TRUSTED_SUBNET"); exist {
+		c.TrustedSubnet = val
+	}
+}
+
+// Init initializes the application configuration using environment variables and command-line flags.
+func Init(c *Config) error {
+	parseEnv(c)
 
 	var flagCgf Config
 	flag.StringVar(&flagCgf.Addr, "a", "", "HTTP-server startup address")
@@ -79,6 +89,7 @@ func Init(c *Config) error {
 	flag.StringVar(&flagCgf.DBConnection, "d", "", "database connection address")
 	flag.BoolVar(&flagCgf.EnableHTTPS, "s", false, "is HTTPS connection enabled")
 	flag.StringVar(&flagCgf.ConfigPath, "c", "", "path to config file (json)")
+	flag.StringVar(&flagCgf.TrustedSubnet, "t", "", "CIDR")
 
 	flag.Parse()
 
@@ -107,6 +118,9 @@ func Init(c *Config) error {
 	}
 	if flagCgf.EnableHTTPS {
 		c.EnableHTTPS = flagCgf.EnableHTTPS
+	}
+	if flagCgf.TrustedSubnet != "" {
+		c.TrustedSubnet = flagCgf.TrustedSubnet
 	}
 
 	return nil

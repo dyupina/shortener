@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -209,4 +210,21 @@ func (con *Controller) HandleGracefulShutdown(server *http.Server) {
 	}
 
 	con.sugar.Infof("Server has been shut down.")
+}
+
+// isIPInSubnet checks if an IP address is in the specified subnet (CIDR)
+func (con *Controller) isIPInSubnet(ip, subnet string) bool {
+	_, ipNet, err := net.ParseCIDR(subnet)
+	if err != nil {
+		con.sugar.Infof("Invalid subnet format: %v", err)
+		return false
+	}
+
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		con.sugar.Infof("Invalid IP address format: %s", ip)
+		return false
+	}
+
+	return ipNet.Contains(parsedIP)
 }
