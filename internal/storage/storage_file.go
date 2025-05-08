@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"shortener/internal/config"
-	"shortener/internal/domain/models"
+	models "shortener/internal/domain/models/json"
 	"shortener/internal/repository"
 	"strconv"
 	"sync"
@@ -40,7 +39,7 @@ func NewStorageFile(c *config.Config) *StorageFile {
 }
 
 // UpdateData updates the data in the storage and returns the shortened URL.
-func (s *StorageFile) UpdateData(req *http.Request, originalURL, userID string) (shortURL string, retErr error) {
+func (s *StorageFile) UpdateData(originalURL, userID string) (shortURL string, retErr error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"shortener/internal/config"
 	"shortener/internal/repository"
+	"shortener/internal/services"
 	"shortener/internal/storage"
-	"shortener/internal/user"
 	"strconv"
 	"time"
 
@@ -21,20 +21,22 @@ import (
 
 // Controller manages HTTP requests for URL shortening operations.
 type Controller struct {
-	conf           *config.Config
-	storageService storage.StorageService
-	sugar          *zap.SugaredLogger
-	userService    user.UserService
+	URLService     services.URLService
+	UserService    services.UserService
+	StorageService storage.StorageService
+	Logger         *zap.SugaredLogger
+	Config         *config.Config
 }
 
 // NewController creates and returns a new instance of Controller using the provided configuration,
 // storage, logger, and user service components.
-func NewController(conf *config.Config, storageService storage.StorageService, logger *zap.SugaredLogger, us user.UserService) *Controller {
+func NewController(compositeService *services.CompositeService, logger *zap.SugaredLogger, conf *config.Config) *Controller {
 	return &Controller{
-		conf:           conf,
-		storageService: storageService,
-		sugar:          logger,
-		userService:    us,
+		URLService:     compositeService.URLService,
+		UserService:    compositeService.UserService,
+		StorageService: compositeService.StorageService,
+		Logger:         logger,
+		Config:         conf,
 	}
 }
 
@@ -56,15 +58,11 @@ func (con *Controller) DeleteUserURLs() http.HandlerFunc {
 			return
 		}
 
-		doneCh := make(chan struct{})
-
-		inputCh := createURLBatchChannel(doneCh, urlIDs)
-		workerChs := distributeDeleteTasks(doneCh, inputCh, con.conf.NumWorkers, userID, con)
-		resultCh := collectDeletionResults(workerChs...)
+		resultCh, _ := con.URLService.DeleteUserURLs(userID, urlIDs)
 
 		go func() {
 			for res := range resultCh {
-				con.sugar.Infof(" Deleted short URL: %s\n", res)
+				con.Logger.Infof(" Deleted short URL: %s\n", res)
 			}
 		}()
 
@@ -90,15 +88,15 @@ func (con *Controller) APIGetUserURLs() http.HandlerFunc {
 
 		res.Header().Set("Content-Type", "application/json")
 
-		urls, exist := con.userService.GetUserURLs(userID)
+		urls, exist := con.URLService.APIGetUserURLs(userID)
 
 		if !exist {
-			con.sugar.Debug("(APIGetUserURLs) StatusUnauthorized userID %s\n", userID)
+			con.Logger.Debug("(APIGetUserURLs) StatusUnauthorized userID %s\n", userID)
 			res.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 		if len(urls) == 0 {
-			con.sugar.Debug("(APIGetUserURLs) StatusNoContent")
+			con.Logger.Debug("(APIGetUserURLs) StatusNoContent")
 			res.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -121,23 +119,28 @@ func (con *Controller) APIGetUserURLs() http.HandlerFunc {
 // Sets a new user ID if the cookies are missing or invalid.
 func (con *Controller) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		uidFromCookie, err := con.userService.GetUserIDFromCookie(req)
+		if req.URL.Path == "/api/internal/stats" {
+			next.ServeHTTP(res, req)
+			return
+		}
+
+		uidFromCookie, err := con.UserService.GetUserIDFromCookie(req)
 
 		if err != nil || uidFromCookie == "" {
-			con.sugar.Debugf("(Authenticate) Missing or invalid cookie: %s", err)
+			con.Logger.Debugf("(Authenticate) Missing or invalid cookie: %s", err)
 
 			uid := uuid.New().String()
-			if err := con.userService.SetUserIDCookie(res, uid); err != nil {
-				con.sugar.Errorf("(Authenticate) Failed to set user ID cookie: %s", err.Error())
+			if err := con.UserService.SetUserIDCookie(res, uid); err != nil {
+				con.Logger.Errorf("(Authenticate) Failed to set user ID cookie: %s", err.Error())
 				http.Error(res, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
 
-			con.userService.InitUserURLs(uid)
-			con.sugar.Debugf("(Authenticate) New user ID set in cookie: %s", uid)
+			con.UserService.InitUserURLs(uid)
+			con.Logger.Debugf("(Authenticate) New user ID set in cookie: %s", uid)
 			req.Header.Set("User-ID", uid)
 		} else {
-			con.sugar.Debugf("(Authenticate) Valid user ID from cookie: %s", uidFromCookie)
+			con.Logger.Debugf("(Authenticate) Valid user ID from cookie: %s", uidFromCookie)
 			req.Header.Set("User-ID", uidFromCookie)
 		}
 
@@ -159,7 +162,7 @@ func (con *Controller) GzipDecodeMiddleware(next http.Handler) http.Handler {
 			}
 			defer func() {
 				if err := gz.Close(); err != nil {
-					con.sugar.Errorf("gz.Close() error")
+					con.Logger.Errorf("gz.Close() error")
 				}
 			}()
 			req.Body = gz
@@ -202,7 +205,7 @@ func (con *Controller) GzipEncodeMiddleware(next http.Handler) http.Handler {
 
 		defer func() {
 			if err := gzip.Close(); err != nil {
-				con.sugar.Errorf("gzip.Close() error")
+				con.Logger.Errorf("gzip.Close() error")
 			}
 		}()
 
@@ -222,7 +225,7 @@ func (con *Controller) GzipEncodeMiddleware(next http.Handler) http.Handler {
 //   - Status and size of the response in case of POST and DELETE.
 func (con *Controller) LoggingMiddleware(next http.Handler) http.Handler {
 	logFn := func(res http.ResponseWriter, req *http.Request) {
-		sugar := con.sugar
+		Logger := con.Logger
 		start := time.Now()
 		uri := req.RequestURI
 		method := req.Method
@@ -230,7 +233,7 @@ func (con *Controller) LoggingMiddleware(next http.Handler) http.Handler {
 		if method == http.MethodGet {
 			next.ServeHTTP(res, req)
 			duration := time.Since(start)
-			sugar.Infoln(
+			Logger.Infoln(
 				"uri", uri,
 				"method", method,
 				"duration", duration,
@@ -247,7 +250,7 @@ func (con *Controller) LoggingMiddleware(next http.Handler) http.Handler {
 				responseData:   responseData,
 			}
 			next.ServeHTTP(&lw, req)
-			sugar.Infoln(
+			Logger.Infoln(
 				"status", responseData.status,
 				"size", responseData.size,
 			)
@@ -263,7 +266,7 @@ func (con *Controller) LoggingMiddleware(next http.Handler) http.Handler {
 				responseData:   responseData,
 			}
 			next.ServeHTTP(&lw, req)
-			sugar.Infoln(
+			Logger.Infoln(
 				"status", responseData.status,
 				"size", responseData.size,
 			)
@@ -278,7 +281,7 @@ func (con *Controller) PanicRecoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				con.sugar.Errorf("Error recovering from panic: %v", err)
+				con.Logger.Errorf("Error recovering from panic: %v", err)
 				http.Error(res, "Error recovering from panic", http.StatusInternalServerError)
 			}
 		}()
@@ -313,17 +316,14 @@ func (con *Controller) ShortenURL() http.HandlerFunc {
 			return
 		}
 
-		shortID, errUpdateData := con.storageService.UpdateData(req, originalURL, userID)
-
-		con.userService.AddURLs(con.conf.BaseURL, userID, shortID, originalURL)
-
-		if errUpdateData != nil && errors.Is(errUpdateData, repository.ErrDuplicateURL) {
+		shortID, err := con.URLService.ShortenURL(originalURL, userID)
+		if err != nil && errors.Is(err, repository.ErrDuplicateURL) {
 			res.WriteHeader(http.StatusConflict)
 		} else {
 			res.WriteHeader(http.StatusCreated)
 		}
 
-		_, err := res.Write([]byte(con.conf.BaseURL + "/" + shortID))
+		_, err = res.Write([]byte(con.Config.BaseURL + "/" + shortID))
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
 			return
@@ -347,11 +347,9 @@ func (con *Controller) APIShortenURL() http.HandlerFunc {
 			return
 		}
 
-		shortID, errUpdateData := con.storageService.UpdateData(req, originalURL, userID)
+		shortID, err := con.URLService.ShortenURL(originalURL, userID)
 
-		con.userService.AddURLs(con.conf.BaseURL, userID, shortID, originalURL)
-
-		shorturl.URL = con.conf.BaseURL + "/" + shortID
+		shorturl.URL = con.Config.BaseURL + "/" + shortID
 
 		resp, errMarshal := json.Marshal(shorturl)
 		if errMarshal != nil {
@@ -360,13 +358,13 @@ func (con *Controller) APIShortenURL() http.HandlerFunc {
 		}
 		res.Header().Set("Content-Type", "application/json")
 
-		if errUpdateData != nil && errors.Is(errUpdateData, repository.ErrDuplicateURL) {
+		if err != nil && errors.Is(err, repository.ErrDuplicateURL) {
 			res.WriteHeader(http.StatusConflict)
 		} else {
 			res.WriteHeader(http.StatusCreated)
 		}
 
-		_, err := res.Write(resp)
+		_, err = res.Write(resp)
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
 			return
@@ -395,19 +393,11 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 			return
 		}
 
-		batchResponse := []batchResponseEntity{}
-		var errUpdateData error
-		for _, url := range urls {
-			shortID, err := con.storageService.UpdateData(req, url.OriginalURL, userID)
-			errUpdateData = err
-
-			if err == nil {
-				con.userService.AddURLs(con.conf.BaseURL, userID, shortID, url.OriginalURL)
-			}
-
-			batchResponse = append(batchResponse, batchResponseEntity{
-				CorrelationID: url.CorrelationID,
-				ShortURL:      con.conf.BaseURL + "/" + shortID})
+		batchResponse, err := con.URLService.APIShortenBatchURL(userID, urls)
+		if err != nil && errors.Is(err, repository.ErrDuplicateURL) {
+			res.WriteHeader(http.StatusConflict)
+		} else {
+			res.WriteHeader(http.StatusCreated)
 		}
 
 		resp, err := json.Marshal(batchResponse)
@@ -416,12 +406,6 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 			return
 		}
 		res.Header().Set("Content-Type", "application/json")
-
-		if errUpdateData != nil && errors.Is(errUpdateData, repository.ErrDuplicateURL) {
-			res.WriteHeader(http.StatusConflict)
-		} else {
-			res.WriteHeader(http.StatusCreated)
-		}
 
 		_, err = res.Write(resp)
 		if err != nil {
@@ -439,9 +423,9 @@ func (con *Controller) APIShortenBatchURL() http.HandlerFunc {
 //   - 400 Bad Request: if there was an error retrieving the data.
 func (con *Controller) GetOriginalURL() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		id := strings.TrimPrefix(req.URL.Path, "/")
+		shortID := strings.TrimPrefix(req.URL.Path, "/")
 
-		originalURL, isDeleted, err := con.storageService.GetData(id)
+		originalURL, isDeleted, err := con.URLService.GettingOriginalURL(shortID)
 
 		if err != nil {
 			http.Error(res, "Bad Request", http.StatusBadRequest)
@@ -464,14 +448,55 @@ func (con *Controller) GetOriginalURL() http.HandlerFunc {
 //   - 500 Internal Server Error: if the connection failed.
 func (con *Controller) PingHandler() http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
-		err := con.storageService.Ping()
+		err := con.URLService.PingHandler()
 		if err != nil {
-			con.sugar.Errorf("Database connection error: %v", err)
+			con.Logger.Errorf("Database connection error: %v", err)
 			http.Error(res, "Database connection error", http.StatusInternalServerError)
 			return
 		}
 
 		res.WriteHeader(http.StatusOK)
-		con.sugar.Info("connected to the database successfully")
+		con.Logger.Info("connected to the database successfully")
+	}
+}
+
+// Statistics returns the number of users and the number of shortened URLs in the service.
+//
+// HTTP Responses:
+//   - 403 Forbidden: if the client's IP address is not in a trusted subnet.
+func (con *Controller) Statistics() http.HandlerFunc {
+	return func(res http.ResponseWriter, req *http.Request) {
+		trustedSubnet := con.Config.TrustedSubnet
+		if trustedSubnet == "" {
+			con.Logger.Debugf("Access Denied (empty trusted_subnet)")
+			http.Error(res, "Access Denied (empty trusted_subnet)", http.StatusForbidden)
+			return
+		}
+
+		clientIP := req.Header.Get("X-Real-IP")
+		if clientIP == "" {
+			clientIP = strings.Split(req.RemoteAddr, ":")[0]
+		}
+
+		if !con.IsIPInSubnet(clientIP, trustedSubnet) {
+			con.Logger.Debugf("Access Denied (IP not in specified subnet)")
+			http.Error(res, "Access Denied (IP not in specified subnet)", http.StatusForbidden)
+			return
+		}
+
+		stats := con.URLService.Statistics()
+
+		resp, err := json.Marshal(stats)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		_, err = res.Write(resp)
+		if err != nil {
+			http.Error(res, "Bad Request", http.StatusBadRequest)
+			return
+		}
 	}
 }

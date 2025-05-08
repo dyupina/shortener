@@ -11,10 +11,11 @@ import (
 	"testing"
 
 	"shortener/internal/config"
+	models "shortener/internal/domain/models/json"
 	"shortener/internal/logger"
 	"shortener/internal/mocks"
+	"shortener/internal/services"
 	"shortener/internal/storage"
-	"shortener/internal/user"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -62,8 +63,10 @@ func TestAPIShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
@@ -78,7 +81,7 @@ func TestAPIShortenURL(t *testing.T) {
 			require.Equal(t, tc.expectedCode, res.StatusCode, "Response code does not match expected")
 			defer func() {
 				if err := res.Body.Close(); err != nil {
-					controller.sugar.Errorf("res.Body.Close() error")
+					controller.Logger.Errorf("res.Body.Close() error")
 				}
 			}()
 		})
@@ -98,8 +101,10 @@ func TestShortenURL(t *testing.T) {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
@@ -114,31 +119,35 @@ func TestShortenURL(t *testing.T) {
 			require.Equal(t, tc.expectedCode, res.StatusCode, "Response code does not match expected")
 			defer func() {
 				if err := res.Body.Close(); err != nil {
-					controller.sugar.Errorf("res.Body.Close() error")
+					controller.Logger.Errorf("res.Body.Close() error")
 				}
 			}()
 		})
 	}
 }
 
-func prepare_(t *testing.T) (*mocks.MockStorageService, *mocks.MockUserService, *Controller) {
+func prepare_(t *testing.T) (*mocks.MockUserService, *mocks.MockURLService, *Controller) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	sugarLogger, _ := logger.NewLogger()
 	conf := config.NewConfig()
 	// _ = config.Init(conf) // TODO ???
-	mockStorageService := mocks.NewMockStorageService(ctrl)
 	mockUserService := mocks.NewMockUserService(ctrl)
+	mockURLService := mocks.NewMockURLService(ctrl)
 
-	controller := NewController(conf, mockStorageService, sugarLogger, mockUserService)
+	controller := NewController(&services.CompositeService{
+		URLService:     mockURLService,
+		UserService:    mockUserService,
+		StorageService: nil,
+	}, sugarLogger, conf)
 
-	return mockStorageService, mockUserService, controller
+	return mockUserService, mockURLService, controller
 }
 
 func TestGetOriginalURL(t *testing.T) {
 	tests := []struct {
-		mockSetup        func(storSrv *mocks.MockStorageService, controller *Controller)
+		mockSetup        func(urlSrv *mocks.MockURLService)
 		name             string
 		requestPath      string
 		expectedLocation string
@@ -147,8 +156,9 @@ func TestGetOriginalURL(t *testing.T) {
 		{
 			name:        "GetOriginalURL ok",
 			requestPath: "/url1",
-			mockSetup: func(storSrv *mocks.MockStorageService, controller *Controller) {
-				storSrv.EXPECT().GetData("url1").Return("http://example.com/1", false, nil)
+			mockSetup: func(urlSrv *mocks.MockURLService) {
+				// storSrv.EXPECT().GetData("url1").Return("http://example.com/1", false, nil)
+				urlSrv.EXPECT().GettingOriginalURL(gomock.Any()).Return("http://example.com/1", false, nil)
 			},
 			expectedStatus:   http.StatusTemporaryRedirect,
 			expectedLocation: "http://example.com/1",
@@ -156,8 +166,9 @@ func TestGetOriginalURL(t *testing.T) {
 		{
 			name:        "GetOriginalURL url not found",
 			requestPath: "/notfound",
-			mockSetup: func(storSrv *mocks.MockStorageService, controller *Controller) {
-				storSrv.EXPECT().GetData("notfound").Return("", false, errors.New("not found"))
+			mockSetup: func(urlSrv *mocks.MockURLService) {
+				// storSrv.EXPECT().GetData("notfound").Return("", false, errors.New("not found"))
+				urlSrv.EXPECT().GettingOriginalURL(gomock.Any()).Return("", false, errors.New("not found"))
 			},
 			expectedStatus:   http.StatusBadRequest,
 			expectedLocation: "",
@@ -165,8 +176,9 @@ func TestGetOriginalURL(t *testing.T) {
 		{
 			name:        "GetOriginalURL URL isDeleted",
 			requestPath: "/isDeleted",
-			mockSetup: func(storSrv *mocks.MockStorageService, controller *Controller) {
-				storSrv.EXPECT().GetData("isDeleted").Return("", true, nil)
+			mockSetup: func(urlSrv *mocks.MockURLService) {
+				// storSrv.EXPECT().GetData("isDeleted").Return("", true, nil)
+				urlSrv.EXPECT().GettingOriginalURL(gomock.Any()).Return("", true, nil)
 			},
 			expectedStatus:   http.StatusGone,
 			expectedLocation: "",
@@ -175,8 +187,8 @@ func TestGetOriginalURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storSrv, _, controller := prepare_(t)
-			tt.mockSetup(storSrv, controller)
+			_, urlSrv, controller := prepare_(t)
+			tt.mockSetup(urlSrv)
 
 			req := httptest.NewRequest("GET", tt.requestPath, nil)
 			w := httptest.NewRecorder()
@@ -194,14 +206,15 @@ func TestGetOriginalURL(t *testing.T) {
 			}
 
 			if err := resp.Body.Close(); err != nil {
-				controller.sugar.Errorf("resp.Body.Close() error")
+				controller.Logger.Errorf("resp.Body.Close() error")
 			}
 		})
 	}
 }
+
 func TestDeleteUserURLs(t *testing.T) {
 	tests := []struct {
-		mockSetup      func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request)
+		mockSetup      func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request)
 		name           string
 		requestBody    string
 		expectedStatus int
@@ -209,19 +222,20 @@ func TestDeleteUserURLs(t *testing.T) {
 		{
 			name:        "DeleteUserURLs ok",
 			requestBody: "[\"url1\"]",
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
 				uid := "testUserID"
 				userSrv.EXPECT().SetUserIDCookie(w, uid).Return(nil)
 				req.Header.Set("User-ID", uid)
 
-				storSrv.EXPECT().BatchDeleteURLs(uid, gomock.Any()).Return(nil)
+				// storSrv.EXPECT().BatchDeleteURLs(uid, gomock.Any()).Return(nil)
+				urlSrv.EXPECT().DeleteUserURLs(uid, gomock.Any()).Return(nil, nil)
 			},
 			expectedStatus: http.StatusAccepted,
 		},
 		{
 			name:        "DeleteUserURLs Unauthorized",
 			requestBody: "", // не важно
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
 				// do nothing
 			},
 			expectedStatus: http.StatusUnauthorized,
@@ -229,7 +243,7 @@ func TestDeleteUserURLs(t *testing.T) {
 		{
 			name:        "DeleteUserURLs Bad Request",
 			requestBody: "", // invalid
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
 				uid := "testUserID"
 				userSrv.EXPECT().SetUserIDCookie(w, uid).Return(nil)
 				req.Header.Set("User-ID", uid)
@@ -240,12 +254,12 @@ func TestDeleteUserURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storSrv, userSrv, controller := prepare_(t)
+			userSrv, urlSrv, controller := prepare_(t)
 
 			req := httptest.NewRequest("DELETE", "/api/user/urls", bytes.NewBufferString(tt.requestBody))
 			w := httptest.NewRecorder()
 
-			tt.mockSetup(storSrv, userSrv, w, req)
+			tt.mockSetup(urlSrv, userSrv, w, req)
 
 			handler := controller.DeleteUserURLs()
 			handler.ServeHTTP(w, req)
@@ -253,7 +267,7 @@ func TestDeleteUserURLs(t *testing.T) {
 			resp := w.Result()
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 			if err := resp.Body.Close(); err != nil {
-				controller.sugar.Errorf("resp.Body.Close() error")
+				controller.Logger.Errorf("resp.Body.Close() error")
 			}
 		})
 	}
@@ -261,18 +275,18 @@ func TestDeleteUserURLs(t *testing.T) {
 
 func TestAPIGetUserURLs(t *testing.T) {
 	tests := []struct {
-		mockSetup      func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request)
+		mockSetup      func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request)
 		name           string
 		expectedStatus int
 	}{
 		{
 			name: "APIGetUserURLs ok",
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
 				uid := "testUserID"
 				userSrv.EXPECT().SetUserIDCookie(w, uid).Return(nil)
 				req.Header.Set("User-ID", uid)
 
-				userSrv.EXPECT().GetUserURLs(uid).Return([]user.UserURL{
+				urlSrv.EXPECT().APIGetUserURLs(uid).Return([]services.UserURL{
 					{ShortURL: "url1", OriginalURL: "http://example.com/1"},
 					{ShortURL: "url2", OriginalURL: "http://example.com/2"},
 				}, true)
@@ -281,17 +295,17 @@ func TestAPIGetUserURLs(t *testing.T) {
 		},
 		{
 			name: "APIGetUserURLs StatusUnauthorized",
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
 			},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name: "APIGetUserURLs StatusUnauthorized (URL doesn't exists)",
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
 				uid := "testUserID"
 				userSrv.EXPECT().SetUserIDCookie(w, uid).Return(nil)
 				req.Header.Set("User-ID", uid)
-				userSrv.EXPECT().GetUserURLs(uid).Return([]user.UserURL{
+				urlSrv.EXPECT().APIGetUserURLs(uid).Return([]services.UserURL{
 					{ShortURL: "url1", OriginalURL: "http://example.com/1"},
 					{ShortURL: "url2", OriginalURL: "http://example.com/2"},
 				}, false)
@@ -300,11 +314,11 @@ func TestAPIGetUserURLs(t *testing.T) {
 		},
 		{
 			name: "APIGetUserURLs StatusNoContent",
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request) {
 				uid := "testUserID"
 				userSrv.EXPECT().SetUserIDCookie(w, uid).Return(nil)
 				req.Header.Set("User-ID", uid)
-				userSrv.EXPECT().GetUserURLs(uid).Return([]user.UserURL{}, true)
+				urlSrv.EXPECT().APIGetUserURLs(uid).Return([]services.UserURL{}, true)
 			},
 			expectedStatus: http.StatusNoContent,
 		},
@@ -312,12 +326,12 @@ func TestAPIGetUserURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storSrv, userSrv, controller := prepare_(t)
+			userSrv, urlSrv, controller := prepare_(t)
 
 			req := httptest.NewRequest("GET", "/api/user/urls", nil)
 			w := httptest.NewRecorder()
 
-			tt.mockSetup(storSrv, userSrv, w, req)
+			tt.mockSetup(urlSrv, userSrv, w, req)
 
 			handler := controller.APIGetUserURLs()
 			handler.ServeHTTP(w, req)
@@ -325,7 +339,7 @@ func TestAPIGetUserURLs(t *testing.T) {
 			resp := w.Result()
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 			if err := resp.Body.Close(); err != nil {
-				controller.sugar.Errorf("resp.Body.Close() error")
+				controller.Logger.Errorf("resp.Body.Close() error")
 			}
 		})
 	}
@@ -333,30 +347,39 @@ func TestAPIGetUserURLs(t *testing.T) {
 
 func TestAPIShortenBatchURL(t *testing.T) {
 	tests := []struct {
-		mockSetup      func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller)
+		mockSetup      func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller)
 		requestBody    interface{}
 		name           string
-		expectedBody   []batchResponseEntity
+		expectedBody   []models.BatchResponseEntity
 		expectedStatus int
 	}{
 		{
 			name: "APIShortenBatchURL ok",
-			requestBody: []batchRequestEntity{
+			requestBody: []models.BatchRequestEntity{
 				{
 					CorrelationID: "id1",
 					OriginalURL:   "http://example.com/1",
 				},
 			},
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller) {
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller) {
 				uid := "testUserID"
 				userSrv.EXPECT().SetUserIDCookie(w, uid).Return(nil)
 				req.Header.Set("User-ID", uid)
 
-				storSrv.EXPECT().UpdateData(req, "http://example.com/1", uid).Return("url1", nil)
-				userSrv.EXPECT().AddURLs(controller.conf.BaseURL, uid, "url1", "http://example.com/1")
+				// storSrv.EXPECT().UpdateData("http://example.com/1", uid).Return("url1", nil)
+				// userSrv.EXPECT().AddURLs(controller.config.BaseURL, uid, "url1", "http://example.com/1")
+
+				urlSrv.EXPECT().
+					APIShortenBatchURL(uid, gomock.Any()).
+					Return([]models.BatchResponseEntity{
+						{
+							CorrelationID: "id1",
+							ShortURL:      "http://localhost:8080/url1",
+						},
+					}, nil)
 			},
 			expectedStatus: http.StatusCreated,
-			expectedBody: []batchResponseEntity{
+			expectedBody: []models.BatchResponseEntity{
 				{
 					CorrelationID: "id1",
 					ShortURL:      "http://localhost:8080/url1",
@@ -365,13 +388,13 @@ func TestAPIShortenBatchURL(t *testing.T) {
 		},
 		{
 			name: "APIShortenBatchURL StatusUnauthorized",
-			requestBody: []batchRequestEntity{
+			requestBody: []models.BatchRequestEntity{
 				{
 					CorrelationID: "id1",
 					OriginalURL:   "http://example.com/1",
 				},
 			},
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller) {
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller) {
 			},
 			expectedStatus: http.StatusUnauthorized,
 			expectedBody:   nil,
@@ -380,7 +403,7 @@ func TestAPIShortenBatchURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storSrv, userSrv, controller := prepare_(t)
+			userSrv, urlSrv, controller := prepare_(t)
 			var req *http.Request
 			var w *httptest.ResponseRecorder
 
@@ -391,7 +414,7 @@ func TestAPIShortenBatchURL(t *testing.T) {
 				w = httptest.NewRecorder()
 			}
 
-			tt.mockSetup(storSrv, userSrv, w, req, controller)
+			tt.mockSetup(urlSrv, userSrv, w, req, controller)
 
 			handler := controller.APIShortenBatchURL()
 			handler.ServeHTTP(w, req)
@@ -400,14 +423,14 @@ func TestAPIShortenBatchURL(t *testing.T) {
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 
 			if resp.StatusCode == http.StatusCreated {
-				var responseBody []batchResponseEntity
+				var responseBody []models.BatchResponseEntity
 				err := json.NewDecoder(resp.Body).Decode(&responseBody)
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedBody, responseBody)
 			}
 
 			if err := resp.Body.Close(); err != nil {
-				controller.sugar.Errorf("resp.Body.Close() error")
+				controller.Logger.Errorf("resp.Body.Close() error")
 			}
 		})
 	}
@@ -415,21 +438,21 @@ func TestAPIShortenBatchURL(t *testing.T) {
 
 func TestPingHandler(t *testing.T) {
 	tests := []struct {
-		mockSetup      func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller)
+		mockSetup      func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller)
 		name           string
 		expectedStatus int
 	}{
 		{
 			name: "PingHandler ok",
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller) {
-				storSrv.EXPECT().Ping().Return(nil)
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller) {
+				urlSrv.EXPECT().PingHandler().Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "PingHandler ok",
-			mockSetup: func(storSrv *mocks.MockStorageService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller) {
-				storSrv.EXPECT().Ping().Return(errors.New(""))
+			mockSetup: func(urlSrv *mocks.MockURLService, userSrv *mocks.MockUserService, w *httptest.ResponseRecorder, req *http.Request, controller *Controller) {
+				urlSrv.EXPECT().PingHandler().Return(errors.New(""))
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -437,10 +460,10 @@ func TestPingHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storSrv, userSrv, controller := prepare_(t)
+			userSrv, urlSrv, controller := prepare_(t)
 			req := httptest.NewRequest("GET", "/ping", nil)
 			w := httptest.NewRecorder()
-			tt.mockSetup(storSrv, userSrv, w, req, controller)
+			tt.mockSetup(urlSrv, userSrv, w, req, controller)
 
 			handler := controller.PingHandler()
 			handler.ServeHTTP(w, req)
@@ -448,7 +471,7 @@ func TestPingHandler(t *testing.T) {
 			resp := w.Result()
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 			if err := resp.Body.Close(); err != nil {
-				controller.sugar.Errorf("resp.Body.Close() error")
+				controller.Logger.Errorf("resp.Body.Close() error")
 			}
 		})
 	}

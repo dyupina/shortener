@@ -1,5 +1,4 @@
-// Package user provides functions for managing user URLs and cookies.
-package user
+package services
 
 import (
 	"fmt"
@@ -36,6 +35,10 @@ type UserService interface {
 	AddURLs(baseURL, userID, shortURL, originalURL string)
 	// InitUserURLs initializes the URL structure for the user.
 	InitUserURLs(userID string)
+	// GetUserNumber returns number of users.
+	GetUserNumber() int
+	// GetURLsCount returns number of shortened URLs.
+	GetURLsCount() int
 }
 
 // newSecurecookie creates and returns a new instance of securecookie for encoding and decoding cookie values.
@@ -110,4 +113,18 @@ func (u *user) AddURLs(baseURL, userID, shortURL, originalURL string) {
 // InitUserURLs initializes the URL storage for a user.
 func (u *user) InitUserURLs(userID string) {
 	u.urls[userID] = []UserURL{}
+}
+
+// GetUserNumber returns the number of users in the service.
+func (u *user) GetUserNumber() int {
+	return len(u.urls)
+}
+
+// GetUserNumber returns the number of shortened URLs in the service.
+func (u *user) GetURLsCount() int {
+	urlsCount := 0
+	for _, userURLs := range u.urls {
+		urlsCount += len(userURLs)
+	}
+	return urlsCount
 }

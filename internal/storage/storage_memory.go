@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"net/http"
 	"shortener/internal/repository"
 	"sync"
 )
@@ -21,7 +20,7 @@ func NewStorageMemory() *StorageMemory {
 }
 
 // UpdateData updates the data in the storage and returns the shortened URL.
-func (s *StorageMemory) UpdateData(req *http.Request, originalURL, userID string) (shortURL string, retErr error) {
+func (s *StorageMemory) UpdateData(originalURL, userID string) (shortURL string, retErr error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	retErr = nil

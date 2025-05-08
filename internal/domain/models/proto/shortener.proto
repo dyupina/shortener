@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+option go_package = "internal/grpc";
+
+package shortener;
+
+service URLShortener {
+  rpc ShortenURL (ShortenURLRequest) returns (ShortenURLResponse);
+  rpc GetOriginalURL (GetOriginalURLRequest) returns (GetOriginalURLResponse);
+  rpc APIShortenURL (ShortenURLRequest) returns (ShortenURLResponse);
+  rpc APIShortenBatchURL (APIShortenBatchURLRequest) returns (APIShortenBatchURLResponse);
+  rpc APIGetUserURLs (APIGetUserURLsRequest) returns (APIGetUserURLsResponse);
+  rpc DeleteUserURLs (DeleteUserURLsRequest) returns (DeleteUserURLsResponse);
+  rpc Ping (PingRequest) returns (PingResponse);
+  rpc Statistics (StatisticsRequest) returns (StatisticsResponse);
+}
+
+message ShortenURLRequest {
+  string original_url = 1;
+  string user_id = 2;
+}
+message ShortenURLResponse {
+  string short_url = 1;
+  string error_message = 2;
+}
+
+message GetOriginalURLRequest {
+  string short_id = 1;
+}
+message GetOriginalURLResponse {
+  string original_url = 1;
+  bool is_deleted = 2;
+  string error_message = 3;
+}
+
+message BatchRequestEntity {
+    string correlation_id = 1;
+    string original_url = 2;
+}
+message APIShortenBatchURLRequest {
+    repeated BatchRequestEntity urls = 1;
+    string user_id = 2;
+}
+message BatchResponseEntity {
+    string correlation_id = 1;
+    string short_url = 2;
+}
+message APIShortenBatchURLResponse {
+    repeated BatchResponseEntity results = 1;
+    string error_message = 2;
+}
+
+message APIGetUserURLsRequest {
+    string user_id = 1;
+}
+message UserURL {
+    string short_url = 1;
+    string original_url = 2;
+}
+message APIGetUserURLsResponse {
+    repeated UserURL urls = 1;
+    bool exists = 2;
+    string error_message = 3;
+}
+
+message DeleteUserURLsRequest {
+    string user_id = 1;
+    repeated string url_ids = 2;
+}
+message DeleteUserURLsResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message PingRequest {}
+message PingResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message StatisticsRequest {
+    string client_ip = 1;
+}
+message StatisticsResponse {
+    int64 users_count = 1;
+    int64 urls_count = 2;
+    string error_message = 3;
+}

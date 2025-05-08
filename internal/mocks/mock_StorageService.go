@@ -5,7 +5,6 @@
 package mocks
 
 import (
-	http "net/http"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -93,16 +92,16 @@ func (mr *MockStorageServiceMockRecorder) Ping() *gomock.Call {
 }
 
 // UpdateData mocks base method.
-func (m *MockStorageService) UpdateData(arg0 *http.Request, arg1, arg2 string) (string, error) {
+func (m *MockStorageService) UpdateData(arg0, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateData", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateData", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateData indicates an expected call of UpdateData.
-func (mr *MockStorageServiceMockRecorder) UpdateData(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockStorageServiceMockRecorder) UpdateData(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateData", reflect.TypeOf((*MockStorageService)(nil).UpdateData), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateData", reflect.TypeOf((*MockStorageService)(nil).UpdateData), arg0, arg1)
 }
