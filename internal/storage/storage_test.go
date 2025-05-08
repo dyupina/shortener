@@ -183,18 +183,18 @@ func TestStorageMemory_UpdateData(t *testing.T) {
 	}
 
 	// Mock
-	req, err := http.NewRequest("POST", "/", nil)
+	_, err := http.NewRequest("POST", "/", nil)
 	require.NoError(t, err)
 
 	t.Run("Add new original URL", func(t *testing.T) {
-		shortURL, err := storage.UpdateData(req, "http://example.com", "user123")
+		shortURL, err := storage.UpdateData("http://example.com", "user123")
 		require.NoError(t, err, "Expected no error when adding new original URL")
 		require.NotEmpty(t, shortURL, "Expected a non-empty short URL")
 		require.Equal(t, "http://example.com", storage.urlStorage[shortURL], "Expected stored URL to match original")
 	})
 
 	t.Run("Add duplicate original URL", func(t *testing.T) {
-		_, err := storage.UpdateData(req, "http://example.com", "user123")
+		_, err := storage.UpdateData("http://example.com", "user123")
 		require.Error(t, err, "Expected error for duplicate original URL")
 		require.Equal(t, repository.ErrDuplicateURL, err, "Expected duplicate URL error")
 	})
@@ -207,11 +207,11 @@ func TestStorageFile_UpdateData(t *testing.T) {
 	}
 
 	// Mock
-	req, err := http.NewRequest("POST", "/", nil)
+	_, err := http.NewRequest("POST", "/", nil)
 	require.NoError(t, err)
 
 	t.Run("Add new original URL", func(t *testing.T) {
-		shortURL, err := storage.UpdateData(req, "http://example.com", "user123")
+		shortURL, err := storage.UpdateData("http://example.com", "user123")
 		require.NoError(t, err, "Expected no error when adding new original URL")
 		require.NotEmpty(t, shortURL, "Expected a non-empty short URL")
 		require.Equal(t, "http://example.com", storage.urlStorage[shortURL], "Expected stored URL to match original")
@@ -221,7 +221,7 @@ func TestStorageFile_UpdateData(t *testing.T) {
 	})
 
 	t.Run("Add duplicate original URL", func(t *testing.T) {
-		_, err := storage.UpdateData(req, "http://example.com", "user123")
+		_, err := storage.UpdateData("http://example.com", "user123")
 		require.Error(t, err, "Expected error for duplicate original URL")
 		require.Equal(t, repository.ErrDuplicateURL, err, "Expected duplicate URL error")
 	})

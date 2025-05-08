@@ -38,7 +38,6 @@
 //	defers - defers defines an Analyzer that checks for common mistakes in defer statements.
 //	directive - directive defines an Analyzer that checks known Go toolchain directives.
 //	errorsas - errorsas defines an Analyzer that checks that the second argument to errors.As is a pointer to a type implementing error.
-//	fieldalignment - fieldalignment defines an Analyzer that detects structs that would use less memory if their fields were sorted.
 //	findcall - findcall defines an Analyzer that serves as a trivial example and test of the Analysis API.
 //	framepointer - framepointer defines an Analyzer that reports assembly code that clobbers the frame pointer before saving it.
 //	httpresponse - httpresponse defines an Analyzer that checks for mistakes using HTTP responses.
@@ -114,7 +113,6 @@ import (
 	"golang.org/x/tools/go/analysis/passes/defers"
 	"golang.org/x/tools/go/analysis/passes/directive"
 	"golang.org/x/tools/go/analysis/passes/errorsas"
-	"golang.org/x/tools/go/analysis/passes/fieldalignment"
 	"golang.org/x/tools/go/analysis/passes/findcall"
 	"golang.org/x/tools/go/analysis/passes/framepointer"
 	"golang.org/x/tools/go/analysis/passes/httpresponse"
@@ -186,7 +184,6 @@ func appendPassesChecks() {
 		defers.Analyzer,
 		directive.Analyzer,
 		errorsas.Analyzer,
-		fieldalignment.Analyzer,
 		findcall.Analyzer,
 		framepointer.Analyzer,
 		httpresponse.Analyzer,

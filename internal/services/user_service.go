@@ -1,5 +1,4 @@
-// Package user provides functions for managing user URLs and cookies.
-package user
+package services
 
 import (
 	"fmt"

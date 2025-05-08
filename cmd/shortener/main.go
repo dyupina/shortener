@@ -3,9 +3,10 @@ package main
 import (
 	"shortener/internal/app"
 	"shortener/internal/config"
+	"shortener/internal/grpc"
 	"shortener/internal/handlers"
 	"shortener/internal/logger"
-	"shortener/internal/user"
+	"shortener/internal/services"
 
 	"net/http"
 	_ "net/http/pprof" //nolint:gosec // Use for Iter16
@@ -37,13 +38,13 @@ func main() {
 	if err != nil {
 		sugarLogger.Fatalf("Failed to initialize config: %v", err)
 	}
-
-	s := app.SelectStorage(c)
-
 	info(sugarLogger)
 
-	userService := user.NewUserService()
-	ctrl := handlers.NewController(c, s, sugarLogger, userService)
+	storageService := app.SelectStorage(c)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, storageService, userService)
+	composite := services.NewCompositeService(urlService, userService, storageService)
+	ctrl := handlers.NewController(composite, sugarLogger, c)
 	r := chi.NewRouter()
 
 	app.InitMiddleware(r, c, ctrl)
@@ -62,6 +63,8 @@ func main() {
 			sugarLogger.Fatalf("Failed to start server: %v", err)
 		}
 	}()
+
+	grpc.RunGRPCServer(ctrl)
 
 	ctrl.HandleGracefulShutdown(server)
 }

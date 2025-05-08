@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
-	"sync"
+	models "shortener/internal/domain/models/json"
 	"syscall"
 	"time"
 )
@@ -20,16 +20,6 @@ var shorturl struct {
 
 var origurl struct {
 	URL string `json:"url"`
-}
-
-type batchRequestEntity struct {
-	CorrelationID string `json:"correlation_id"`
-	OriginalURL   string `json:"original_url"`
-}
-
-type batchResponseEntity struct {
-	CorrelationID string `json:"correlation_id"`
-	ShortURL      string `json:"short_url"`
 }
 
 type (
@@ -96,89 +86,13 @@ func extractURLfromJSON(res http.ResponseWriter, req *http.Request) string {
 	return origurl.URL
 }
 
-func extractURLsfromJSONBatchRequest(req *http.Request) []batchRequestEntity {
-	var urls []batchRequestEntity
+func extractURLsfromJSONBatchRequest(req *http.Request) []models.BatchRequestEntity {
+	var urls []models.BatchRequestEntity
 	err := json.NewDecoder(req.Body).Decode(&urls)
 	if err != nil {
 		return nil
 	}
 	return urls
-}
-
-func createURLBatchChannel(doneCh chan struct{}, urlsToDeleteArray []string) chan []string {
-	inputCh := make(chan []string)
-	go func() {
-		defer close(inputCh)
-		select {
-		case <-doneCh:
-			return
-		case inputCh <- urlsToDeleteArray:
-		}
-	}()
-	return inputCh
-}
-
-func distributeDeleteTasks(doneCh chan struct{}, inputCh chan []string, numWorkers int, userID string, con *Controller) []chan string {
-	var resultChs []chan string
-	var wg sync.WaitGroup
-
-	for i := 0; i < numWorkers; i++ {
-		resultCh := make(chan string)
-
-		wg.Add(1)
-		go func(ch chan string) {
-			defer wg.Done()
-			defer close(ch)
-			for urlsToDeleteArray := range inputCh {
-				select {
-				case <-doneCh:
-					return
-				default:
-					err := con.storageService.BatchDeleteURLs(userID, urlsToDeleteArray)
-					if err != nil {
-						con.sugar.Errorf(" Error Updating flag to URLs %s\n", err.Error())
-
-						close(doneCh)
-						return
-					}
-
-					for _, d := range urlsToDeleteArray {
-						ch <- d
-					}
-				}
-			}
-		}(resultCh)
-
-		resultChs = append(resultChs, resultCh)
-	}
-
-	go func() {
-		wg.Wait()
-	}()
-
-	return resultChs
-}
-
-func collectDeletionResults(channels ...chan string) chan string {
-	finalCh := make(chan string)
-	var wg sync.WaitGroup
-
-	for _, ch := range channels {
-		wg.Add(1)
-		go func(ch chan string) {
-			defer wg.Done()
-			for v := range ch {
-				finalCh <- v
-			}
-		}(ch)
-	}
-
-	go func() {
-		wg.Wait()
-		close(finalCh)
-	}()
-
-	return finalCh
 }
 
 // HandleGracefulShutdown handles termination signals.
@@ -188,41 +102,41 @@ func (con *Controller) HandleGracefulShutdown(server *http.Server) {
 
 	// Ждем получения первого сигнала
 	<-notifyCtx.Done()
-	con.sugar.Infof("Received shutdown signal")
+	con.Logger.Infof("Received shutdown signal")
 
 	// Отключаем прием новых подключений и дожидаемся завершения активных запросов
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(con.conf.Timeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(con.Config.Timeout)*time.Second)
 	defer cancel()
 
 	// Закрываем соединение с базой данных.
 	go func() {
-		if con.conf.DBConnection != "" {
-			con.sugar.Infof("Closing database connection...")
-			if err := con.storageService.Close(); err != nil {
-				con.sugar.Errorf("Failed to close database connection: %v", err)
+		if con.Config.DBConnection != "" {
+			con.Logger.Infof("Closing database connection...")
+			if err := con.StorageService.Close(); err != nil {
+				con.Logger.Errorf("Failed to close database connection: %v", err)
 			}
 		}
 	}()
 
-	con.sugar.Infof("Shutting down gracefully...")
+	con.Logger.Infof("Shutting down gracefully...")
 	if err := server.Shutdown(ctx); err != nil {
-		con.sugar.Infof("HTTP server shutdown error: %v", err)
+		con.Logger.Infof("HTTP server shutdown error: %v", err)
 	}
 
-	con.sugar.Infof("Server has been shut down.")
+	con.Logger.Infof("Server has been shut down.")
 }
 
-// isIPInSubnet checks if an IP address is in the specified subnet (CIDR)
-func (con *Controller) isIPInSubnet(ip, subnet string) bool {
+// IsIPInSubnet checks if an IP address is in the specified subnet (CIDR)
+func (con *Controller) IsIPInSubnet(ip, subnet string) bool {
 	_, ipNet, err := net.ParseCIDR(subnet)
 	if err != nil {
-		con.sugar.Infof("Invalid subnet format: %v", err)
+		con.Logger.Infof("Invalid subnet format: %v", err)
 		return false
 	}
 
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
-		con.sugar.Infof("Invalid IP address format: %s", ip)
+		con.Logger.Infof("Invalid IP address format: %s", ip)
 		return false
 	}
 

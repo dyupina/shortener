@@ -71,9 +71,16 @@ tasks:
       - mkdir -p coverage
       - go test -coverprofile=coverage/coverage.out ./...
       - go tool cover -func=coverage/coverage.out
+  grpc:
+    desc: Build gRPC service
+    cmds:
+      - |
+        protoc --go_out=. --go_opt=paths=source_relative \
+        --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+        internal/domain/models/proto/*.proto
   all:
     desc: Execute app
     cmds:
       - go build -o cmd/shortener/main -ldflags "-X main.buildVersion=v1.0.1 -X 'main.buildDate=$(date +'%Y/%m/%d')' -X main.buildCommit=$(git rev-parse HEAD)" cmd/shortener/main.go
       - sudo ./cmd/shortener/main -c shortener_config.json
-    deps: [lint, sast]
+    deps: [lint, sast, grpc]

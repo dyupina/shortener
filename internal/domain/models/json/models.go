@@ -18,3 +18,13 @@ type StatsResponse struct {
 	// Users: number of users
 	Users int `json:"users"`
 }
+
+type BatchRequestEntity struct {
+	CorrelationID string `json:"correlation_id"`
+	OriginalURL   string `json:"original_url"`
+}
+
+type BatchResponseEntity struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
+}
