@@ -24,7 +24,6 @@ const (
 type ShortenURLRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	OriginalUrl   string                 `protobuf:"bytes,1,opt,name=original_url,json=originalUrl,proto3" json:"original_url,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -62,13 +61,6 @@ func (*ShortenURLRequest) Descriptor() ([]byte, []int) {
 func (x *ShortenURLRequest) GetOriginalUrl() string {
 	if x != nil {
 		return x.OriginalUrl
-	}
-	return ""
-}
-
-func (x *ShortenURLRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
 	}
 	return ""
 }
@@ -284,7 +276,6 @@ func (x *BatchRequestEntity) GetOriginalUrl() string {
 type APIShortenBatchURLRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Urls          []*BatchRequestEntity  `protobuf:"bytes,1,rep,name=urls,proto3" json:"urls,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -324,13 +315,6 @@ func (x *APIShortenBatchURLRequest) GetUrls() []*BatchRequestEntity {
 		return x.Urls
 	}
 	return nil
-}
-
-func (x *APIShortenBatchURLRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
 }
 
 type BatchResponseEntity struct {
@@ -439,7 +423,6 @@ func (x *APIShortenBatchURLResponse) GetErrorMessage() string {
 
 type APIGetUserURLsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -472,13 +455,6 @@ func (x *APIGetUserURLsRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use APIGetUserURLsRequest.ProtoReflect.Descriptor instead.
 func (*APIGetUserURLsRequest) Descriptor() ([]byte, []int) {
 	return file_internal_domain_models_proto_shortener_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *APIGetUserURLsRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
 }
 
 type UserURL struct {
@@ -595,8 +571,7 @@ func (x *APIGetUserURLsResponse) GetErrorMessage() string {
 
 type DeleteUserURLsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	UrlIds        []string               `protobuf:"bytes,2,rep,name=url_ids,json=urlIds,proto3" json:"url_ids,omitempty"`
+	UrlIds        []string               `protobuf:"bytes,1,rep,name=url_ids,json=urlIds,proto3" json:"url_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -629,13 +604,6 @@ func (x *DeleteUserURLsRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DeleteUserURLsRequest.ProtoReflect.Descriptor instead.
 func (*DeleteUserURLsRequest) Descriptor() ([]byte, []int) {
 	return file_internal_domain_models_proto_shortener_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *DeleteUserURLsRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
 }
 
 func (x *DeleteUserURLsRequest) GetUrlIds() []string {
@@ -893,10 +861,9 @@ var File_internal_domain_models_proto_shortener_proto protoreflect.FileDescripto
 
 const file_internal_domain_models_proto_shortener_proto_rawDesc = "" +
 	"\n" +
-	",internal/domain/models/proto/shortener.proto\x12\tshortener\"O\n" +
+	",internal/domain/models/proto/shortener.proto\x12\tshortener\"6\n" +
 	"\x11ShortenURLRequest\x12!\n" +
-	"\foriginal_url\x18\x01 \x01(\tR\voriginalUrl\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"V\n" +
+	"\foriginal_url\x18\x01 \x01(\tR\voriginalUrl\"V\n" +
 	"\x12ShortenURLResponse\x12\x1b\n" +
 	"\tshort_url\x18\x01 \x01(\tR\bshortUrl\x12#\n" +
 	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"2\n" +
@@ -909,28 +876,25 @@ const file_internal_domain_models_proto_shortener_proto_rawDesc = "" +
 	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\"^\n" +
 	"\x12BatchRequestEntity\x12%\n" +
 	"\x0ecorrelation_id\x18\x01 \x01(\tR\rcorrelationId\x12!\n" +
-	"\foriginal_url\x18\x02 \x01(\tR\voriginalUrl\"g\n" +
+	"\foriginal_url\x18\x02 \x01(\tR\voriginalUrl\"N\n" +
 	"\x19APIShortenBatchURLRequest\x121\n" +
-	"\x04urls\x18\x01 \x03(\v2\x1d.shortener.BatchRequestEntityR\x04urls\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"Y\n" +
+	"\x04urls\x18\x01 \x03(\v2\x1d.shortener.BatchRequestEntityR\x04urls\"Y\n" +
 	"\x13BatchResponseEntity\x12%\n" +
 	"\x0ecorrelation_id\x18\x01 \x01(\tR\rcorrelationId\x12\x1b\n" +
 	"\tshort_url\x18\x02 \x01(\tR\bshortUrl\"{\n" +
 	"\x1aAPIShortenBatchURLResponse\x128\n" +
 	"\aresults\x18\x01 \x03(\v2\x1e.shortener.BatchResponseEntityR\aresults\x12#\n" +
-	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"0\n" +
-	"\x15APIGetUserURLsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"I\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"\x17\n" +
+	"\x15APIGetUserURLsRequest\"I\n" +
 	"\aUserURL\x12\x1b\n" +
 	"\tshort_url\x18\x01 \x01(\tR\bshortUrl\x12!\n" +
 	"\foriginal_url\x18\x02 \x01(\tR\voriginalUrl\"}\n" +
 	"\x16APIGetUserURLsResponse\x12&\n" +
 	"\x04urls\x18\x01 \x03(\v2\x12.shortener.UserURLR\x04urls\x12\x16\n" +
 	"\x06exists\x18\x02 \x01(\bR\x06exists\x12#\n" +
-	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\"I\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\"0\n" +
 	"\x15DeleteUserURLsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x17\n" +
-	"\aurl_ids\x18\x02 \x03(\tR\x06urlIds\"W\n" +
+	"\aurl_ids\x18\x01 \x03(\tR\x06urlIds\"W\n" +
 	"\x16DeleteUserURLsResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12#\n" +
 	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"\r\n" +

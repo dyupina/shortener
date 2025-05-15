@@ -6,6 +6,7 @@ require (
 	github.com/9ssi7/nanoid v0.0.1
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/golang/mock v1.6.0
+	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/securecookie v1.1.2
 	github.com/pressly/goose/v3 v3.24.1
 	github.com/stretchr/testify v1.10.0

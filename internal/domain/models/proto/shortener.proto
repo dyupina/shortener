@@ -5,32 +5,31 @@ option go_package = "internal/grpc";
 package shortener;
 
 service URLShortener {
-  rpc ShortenURL (ShortenURLRequest) returns (ShortenURLResponse);
-  rpc GetOriginalURL (GetOriginalURLRequest) returns (GetOriginalURLResponse);
-  rpc APIShortenURL (ShortenURLRequest) returns (ShortenURLResponse);
-  rpc APIShortenBatchURL (APIShortenBatchURLRequest) returns (APIShortenBatchURLResponse);
-  rpc APIGetUserURLs (APIGetUserURLsRequest) returns (APIGetUserURLsResponse);
-  rpc DeleteUserURLs (DeleteUserURLsRequest) returns (DeleteUserURLsResponse);
-  rpc Ping (PingRequest) returns (PingResponse);
-  rpc Statistics (StatisticsRequest) returns (StatisticsResponse);
+    rpc ShortenURL (ShortenURLRequest) returns (ShortenURLResponse);
+    rpc GetOriginalURL (GetOriginalURLRequest) returns (GetOriginalURLResponse);
+    rpc APIShortenURL (ShortenURLRequest) returns (ShortenURLResponse);
+    rpc APIShortenBatchURL (APIShortenBatchURLRequest) returns (APIShortenBatchURLResponse);
+    rpc APIGetUserURLs (APIGetUserURLsRequest) returns (APIGetUserURLsResponse);
+    rpc DeleteUserURLs (DeleteUserURLsRequest) returns (DeleteUserURLsResponse);
+    rpc Ping (PingRequest) returns (PingResponse);
+    rpc Statistics (StatisticsRequest) returns (StatisticsResponse);
 }
 
 message ShortenURLRequest {
-  string original_url = 1;
-  string user_id = 2;
+    string original_url = 1;
 }
 message ShortenURLResponse {
-  string short_url = 1;
-  string error_message = 2;
+    string short_url = 1;
+    string error_message = 2;
 }
 
 message GetOriginalURLRequest {
-  string short_id = 1;
+    string short_id = 1;
 }
 message GetOriginalURLResponse {
-  string original_url = 1;
-  bool is_deleted = 2;
-  string error_message = 3;
+    string original_url = 1;
+    bool is_deleted = 2;
+    string error_message = 3;
 }
 
 message BatchRequestEntity {
@@ -39,7 +38,6 @@ message BatchRequestEntity {
 }
 message APIShortenBatchURLRequest {
     repeated BatchRequestEntity urls = 1;
-    string user_id = 2;
 }
 message BatchResponseEntity {
     string correlation_id = 1;
@@ -51,7 +49,6 @@ message APIShortenBatchURLResponse {
 }
 
 message APIGetUserURLsRequest {
-    string user_id = 1;
 }
 message UserURL {
     string short_url = 1;
@@ -64,8 +61,7 @@ message APIGetUserURLsResponse {
 }
 
 message DeleteUserURLsRequest {
-    string user_id = 1;
-    repeated string url_ids = 2;
+    repeated string url_ids = 1;
 }
 message DeleteUserURLsResponse {
     bool success = 1;

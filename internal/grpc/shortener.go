@@ -7,7 +7,18 @@ import (
 	pb "shortener/internal/domain/models/proto"
 	"shortener/internal/handlers"
 	"shortener/internal/repository"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
+
+// contextKey is a custom type.
+type contextKey string
+
+// UserIDKey is a "User-ID".
+const UserIDKey contextKey = "User-ID"
 
 // GRPCServer implements gRPC service.
 type GRPCServer struct {
@@ -24,19 +35,18 @@ func NewGRPCServer(con *handlers.Controller) *GRPCServer {
 
 // ShortenURL handles requests to create a shortened URL from an incoming URL.
 func (s *GRPCServer) ShortenURL(ctx context.Context, req *pb.ShortenURLRequest) (*pb.ShortenURLResponse, error) {
-	shortID, err := s.con.URLService.ShortenURL(req.OriginalUrl, req.UserId)
-	if err != nil {
-		if errors.Is(err, repository.ErrDuplicateURL) {
-			return &pb.ShortenURLResponse{ShortUrl: "", ErrorMessage: "URL already exists"}, nil
-		}
-		return nil, err
+	uid, ok := ctx.Value(UserIDKey).(string)
+	if !ok || uid == "" {
+		s.con.Logger.Infof("(ShortenURL) Unauthorized")
+		return nil, status.Error(codes.Unauthenticated, "Unauthorized")
 	}
-	return &pb.ShortenURLResponse{ShortUrl: shortID, ErrorMessage: ""}, nil
+
+	return s.shorten(req, uid)
 }
 
 // GetOriginalURL restores the original URL from a shortened identifier.
 func (s *GRPCServer) GetOriginalURL(ctx context.Context, req *pb.GetOriginalURLRequest) (*pb.GetOriginalURLResponse, error) {
-	originalURL, isDeleted, err := s.con.URLService.GettingOriginalURL(req.ShortId)
+	originalURL, isDeleted, err := s.con.URLService.GettingOriginalURL(req.GetShortId())
 	if err != nil {
 		return &pb.GetOriginalURLResponse{
 			OriginalUrl:  "",
@@ -54,34 +64,31 @@ func (s *GRPCServer) GetOriginalURL(ctx context.Context, req *pb.GetOriginalURLR
 
 // APIShortenURL provides an API for creating a shortened URL from an incoming request.
 func (s *GRPCServer) APIShortenURL(ctx context.Context, req *pb.ShortenURLRequest) (*pb.ShortenURLResponse, error) {
-	shortID, err := s.con.URLService.ShortenURL(req.OriginalUrl, req.UserId)
-	if err != nil {
-		if errors.Is(err, repository.ErrDuplicateURL) {
-			return &pb.ShortenURLResponse{
-				ShortUrl:     "",
-				ErrorMessage: "URL already exists",
-			}, nil
-		}
-		return nil, err
+	uid, ok := ctx.Value(UserIDKey).(string)
+	if !ok || uid == "" {
+		s.con.Logger.Infof("(APIShortenURL) Unauthorized")
+		return nil, status.Error(codes.Unauthenticated, "Unauthorized")
 	}
-
-	return &pb.ShortenURLResponse{
-		ShortUrl:     shortID,
-		ErrorMessage: "",
-	}, nil
+	return s.shorten(req, uid)
 }
 
 // APIShortenBatchURL handles batch requests for creating shortened URLs from an incoming request.
 func (s *GRPCServer) APIShortenBatchURL(ctx context.Context, req *pb.APIShortenBatchURLRequest) (*pb.APIShortenBatchURLResponse, error) {
+	uid, ok := ctx.Value(UserIDKey).(string)
+	if !ok || uid == "" {
+		s.con.Logger.Infof("(APIShortenBatchURL) Unauthorized")
+		return nil, status.Error(codes.Unauthenticated, "Unauthorized")
+	}
+
 	var urls []models.BatchRequestEntity
-	for _, url := range req.Urls {
+	for _, url := range req.GetUrls() {
 		urls = append(urls, models.BatchRequestEntity{
 			CorrelationID: url.CorrelationId,
 			OriginalURL:   url.OriginalUrl,
 		})
 	}
 
-	batchResponse, err := s.con.URLService.APIShortenBatchURL(req.UserId, urls)
+	batchResponse, err := s.con.URLService.APIShortenBatchURL(uid, urls)
 	if err != nil {
 		if errors.Is(err, repository.ErrDuplicateURL) {
 			return &pb.APIShortenBatchURLResponse{
@@ -108,10 +115,16 @@ func (s *GRPCServer) APIShortenBatchURL(ctx context.Context, req *pb.APIShortenB
 
 // APIGetUserURLs handles requests to retrieve all URLs associated with a user.
 func (s *GRPCServer) APIGetUserURLs(ctx context.Context, req *pb.APIGetUserURLsRequest) (*pb.APIGetUserURLsResponse, error) {
-	urls, exist := s.con.URLService.APIGetUserURLs(req.UserId)
+	uid, ok := ctx.Value(UserIDKey).(string)
+	if !ok || uid == "" {
+		s.con.Logger.Infof("(APIGetUserURLs) Unauthorized")
+		return nil, status.Error(codes.Unauthenticated, "Unauthorized")
+	}
+
+	urls, exist := s.con.URLService.APIGetUserURLs(uid)
 
 	if !exist {
-		s.con.Logger.Debugf("(APIGetUserURLs) StatusUnauthorized userID %s", req.UserId)
+		s.con.Logger.Debugf("(APIGetUserURLs) StatusUnauthorized userID %s", uid)
 		return &pb.APIGetUserURLsResponse{
 			Urls:         nil,
 			Exists:       false,
@@ -145,14 +158,13 @@ func (s *GRPCServer) APIGetUserURLs(ctx context.Context, req *pb.APIGetUserURLsR
 
 // DeleteUserURLs handles HTTP requests to delete URLs belonging to a user.
 func (s *GRPCServer) DeleteUserURLs(ctx context.Context, req *pb.DeleteUserURLsRequest) (*pb.DeleteUserURLsResponse, error) {
-	if req.UserId == "" {
-		return &pb.DeleteUserURLsResponse{
-			Success:      false,
-			ErrorMessage: "Unauthorized",
-		}, nil
+	uid, ok := ctx.Value(UserIDKey).(string)
+	if !ok || uid == "" {
+		s.con.Logger.Infof("(DeleteUserURLs) Unauthorized")
+		return nil, status.Error(codes.Unauthenticated, "Unauthorized")
 	}
 
-	resultCh, err := s.con.URLService.DeleteUserURLs(req.UserId, req.UrlIds)
+	resultCh, err := s.con.URLService.DeleteUserURLs(uid, req.GetUrlIds())
 	if err != nil {
 		return &pb.DeleteUserURLsResponse{
 			Success:      false,
@@ -200,7 +212,7 @@ func (s *GRPCServer) Statistics(ctx context.Context, req *pb.StatisticsRequest) 
 		}, nil
 	}
 
-	clientIP := req.ClientIp
+	clientIP := req.GetClientIp()
 	if !s.con.IsIPInSubnet(clientIP, trustedSubnet) {
 		s.con.Logger.Debugf("Access Denied (IP not in specified subnet)")
 		return &pb.StatisticsResponse{
@@ -217,4 +229,76 @@ func (s *GRPCServer) Statistics(ctx context.Context, req *pb.StatisticsRequest) 
 		UrlsCount:    int64(stats.URLs),
 		ErrorMessage: "",
 	}, nil
+}
+
+// shorten perform url shortening.
+func (s *GRPCServer) shorten(req *pb.ShortenURLRequest, uid string) (*pb.ShortenURLResponse, error) {
+	shortID, err := s.con.URLService.ShortenURL(req.GetOriginalUrl(), uid)
+	if err != nil {
+		if errors.Is(err, repository.ErrDuplicateURL) {
+			return &pb.ShortenURLResponse{
+				ShortUrl:     "",
+				ErrorMessage: "URL already exists",
+			}, nil
+		}
+		return nil, err
+	}
+
+	return &pb.ShortenURLResponse{
+		ShortUrl:     shortID,
+		ErrorMessage: "",
+	}, nil
+}
+
+// AuthenticateInterceptor performs user authentication.
+func AuthenticateInterceptor(s *GRPCServer) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		if info.FullMethod == "/shortener.URLShortener/Statistics" {
+			return handler(ctx, req)
+		}
+
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			s.con.Logger.Infof("No metadata found in the incoming context")
+			return nil, status.Error(codes.Unauthenticated, "Missing metadata")
+		}
+
+		userIDs := md.Get("user-id")
+		var uid string
+
+		if len(userIDs) == 0 {
+			uid = ""
+		} else if len(userIDs) > 0 {
+			uid = userIDs[0]
+			s.con.Logger.Infof("(AuthInterceptor) Valid user ID from metadata: %s", uid)
+		}
+
+		ctx = context.WithValue(ctx, UserIDKey, uid)
+
+		return handler(ctx, req)
+	}
+}
+
+// LoggingInterceptor logs information about gRPC requests and responses.
+func LoggingInterceptor(s *GRPCServer) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			s.con.Logger.Infof("No metadata found in the incoming context")
+		} else {
+			s.con.Logger.Infof("Incoming metadata: %+v", md)
+		}
+
+		s.con.Logger.Infof("Received request for method: %s", info.FullMethod)
+
+		resp, err := handler(ctx, req)
+
+		if err != nil {
+			s.con.Logger.Infof("Error while handling request: %v", err)
+		} else {
+			s.con.Logger.Infof("Response sent: %+v", resp)
+		}
+
+		return resp, err
+	}
 }

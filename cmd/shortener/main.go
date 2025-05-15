@@ -3,7 +3,8 @@ package main
 import (
 	"shortener/internal/app"
 	"shortener/internal/config"
-	"shortener/internal/grpc"
+	grpc_ "shortener/internal/grpc"
+
 	"shortener/internal/handlers"
 	"shortener/internal/logger"
 	"shortener/internal/services"
@@ -64,7 +65,7 @@ func main() {
 		}
 	}()
 
-	grpc.RunGRPCServer(ctrl)
+	grpc_.RunGRPCServer(ctrl)
 
 	ctrl.HandleGracefulShutdown(server)
 }

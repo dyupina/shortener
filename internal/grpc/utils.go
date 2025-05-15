@@ -11,8 +11,16 @@ import (
 // RunGRPCServer starts gRPC service.
 func RunGRPCServer(con *handlers.Controller) {
 	gRPCPort := "3200"
-	grpcServer := grpc.NewServer()
-	pb.RegisterURLShortenerServer(grpcServer, NewGRPCServer(con))
+	grpcServerInstance := NewGRPCServer(con)
+
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			AuthenticateInterceptor(grpcServerInstance),
+			LoggingInterceptor(grpcServerInstance),
+		),
+	)
+
+	pb.RegisterURLShortenerServer(grpcServer, grpcServerInstance)
 
 	lis, err := net.Listen("tcp", ":"+gRPCPort)
 	if err != nil {
