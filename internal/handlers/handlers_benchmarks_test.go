@@ -9,8 +9,9 @@ import (
 	"net/http/httptest"
 	"path"
 	"shortener/internal/config"
+	models "shortener/internal/domain/models/json"
 	"shortener/internal/logger"
-	"shortener/internal/user"
+	"shortener/internal/services"
 	"testing"
 
 	"github.com/google/uuid"
@@ -22,17 +23,19 @@ func prepare() *Controller {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
 
-	controller.userService.InitUserURLs(uid)
+	controller.UserService.InitUserURLs(uid)
 
 	return controller
 }
 
 func auth(res http.ResponseWriter, req *http.Request, controller *Controller, uid string) {
-	if err := controller.userService.SetUserIDCookie(res, uid); err != nil {
-		controller.sugar.Errorf("(Authenticate) Failed to set user ID cookie: %s", err.Error())
+	if err := controller.UserService.SetUserIDCookie(res, uid); err != nil {
+		controller.Logger.Errorf("(Authenticate) Failed to set user ID cookie: %s", err.Error())
 		http.Error(res, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -67,7 +70,7 @@ func BenchmarkGetOriginalURL(b *testing.B) {
 	res1 := w.Result()
 	defer func() {
 		if err := res1.Body.Close(); err != nil {
-			controller.sugar.Errorf("res1.Body.Close() error")
+			controller.Logger.Errorf("res1.Body.Close() error")
 		}
 	}()
 	shortURLfromServer, _ := io.ReadAll(res1.Body)
@@ -171,11 +174,11 @@ func BenchmarkDeleteUserURLs(b *testing.B) {
 	res1 := w.Result()
 	defer func() {
 		if err := res1.Body.Close(); err != nil {
-			controller.sugar.Errorf("res1.Body.Close() error")
+			controller.Logger.Errorf("res1.Body.Close() error")
 		}
 	}()
 	resp, _ := io.ReadAll(res1.Body)
-	var batchResp []batchResponseEntity
+	var batchResp []models.BatchResponseEntity
 	err := json.Unmarshal(resp, &batchResp)
 	if err != nil {
 		return

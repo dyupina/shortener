@@ -9,9 +9,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"shortener/internal/config"
+	models "shortener/internal/domain/models/json"
 	"shortener/internal/logger"
+	"shortener/internal/services"
 	"shortener/internal/storage"
-	"shortener/internal/user"
 	"time"
 )
 
@@ -20,8 +21,10 @@ func ExampleController_ShortenURL() {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -56,8 +59,10 @@ func ExampleController_APIGetUserURLs() {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -91,8 +96,10 @@ func ExampleController_PingHandler() {
 	c := config.NewConfig()
 	s := SelectStorage(c)
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -119,14 +126,16 @@ func ExampleController_GetOriginalURL() {
 	c := config.NewConfig()
 	s := storage.NewStorageMemory()
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	userID := "test_user"
 	originalURL := "http://ExampleController_.com"
-	shortID, _ := s.UpdateData(nil, originalURL, userID)
+	shortID, _ := s.UpdateData(originalURL, userID)
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", "/"+shortID, nil)
 	rr := httptest.NewRecorder()
@@ -150,8 +159,10 @@ func ExampleController_APIShortenURL() {
 	c := config.NewConfig()
 	s := storage.NewStorageMemory()
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -182,12 +193,14 @@ func ExampleController_APIShortenBatchURL() {
 	c := config.NewConfig()
 	s := storage.NewStorageMemory()
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	urls := []batchRequestEntity{
+	urls := []models.BatchRequestEntity{
 		{CorrelationID: "1", OriginalURL: "http://ExampleController_1.com"},
 		{CorrelationID: "2", OriginalURL: "http://ExampleController_2.com"},
 	}
@@ -217,8 +230,11 @@ func ExampleController_DeleteUserURLs() {
 	c := config.NewConfig()
 	s := storage.NewStorageMemory()
 	sugarLogger, _ := logger.NewLogger()
-	userService := user.NewUserService()
-	controller := NewController(c, s, sugarLogger, userService)
+	userService := services.NewUserService()
+	urlService := services.NewURLService(c, s, userService)
+	composite := services.NewCompositeService(urlService, userService, s)
+	controller := NewController(composite, sugarLogger, c)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"log"
-	"net/http"
 	"shortener/internal/repository"
 
 	"github.com/pressly/goose/v3"
@@ -45,7 +44,7 @@ func NewStorageDB(connetion string) *StorageDB {
 }
 
 // UpdateData updates data in the storage and returns the shortened URL.
-func (s *StorageDB) UpdateData(req *http.Request, originalURL, userID string) (shortURL string, retErr error) {
+func (s *StorageDB) UpdateData(originalURL, userID string) (shortURL string, retErr error) {
 	var repo = &repository.Repo{}
 	shortURL, retErr = repo.GetShortURLDB(userID, originalURL, s.DBConn)
 	return shortURL, retErr

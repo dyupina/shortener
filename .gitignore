@@ -30,3 +30,4 @@ cookies.txt
 cmd/staticlint/staticlint
 https/
 shortener_config.json
+grpcurl
